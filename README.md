@@ -1,6 +1,6 @@
 # Claw3D
 
-A 3D workspace for AI agents.
+A 3D workspace for AI agents
 
 > Unofficial project: Claw3D is an independent community project and is not affiliated with, endorsed by, or maintained by the OpenClaw team. OpenClaw is a separate project, and this repository is not the official OpenClaw repository.
 
