@@ -567,10 +567,8 @@ export class GatewayBrowserClient {
           err instanceof GatewayResponseError
             ? `connect failed: ${err.code} ${err.message}`
             : "connect failed";
+        console.warn("[gateway] connect error:", rawReason);
         const reason = truncateWsCloseReason(rawReason);
-        if (reason !== rawReason) {
-          console.warn("[gateway] connect close reason truncated to 123 UTF-8 bytes");
-        }
         this.ws?.close(CONNECT_FAILED_CLOSE_CODE, reason);
       });
   }

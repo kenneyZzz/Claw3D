@@ -56,6 +56,10 @@ export const useVoiceReplyPlayback = (params: {
   }, []);
 
   const getAudioContext = useCallback(() => {
+    return audioContextRef.current;
+  }, []);
+
+  const ensureAudioContext = useCallback(() => {
     if (typeof window === "undefined") return null;
     if (audioContextRef.current) return audioContextRef.current;
     const AudioContextCtor =
@@ -79,7 +83,7 @@ export const useVoiceReplyPlayback = (params: {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const unlockAudio = () => {
-      const context = getAudioContext();
+      const context = ensureAudioContext();
       if (!context || context.state !== "suspended") return;
       void context.resume().catch(() => {
         /* ignore */
@@ -91,7 +95,7 @@ export const useVoiceReplyPlayback = (params: {
       window.removeEventListener("pointerdown", unlockAudio, true);
       window.removeEventListener("keydown", unlockAudio, true);
     };
-  }, [getAudioContext]);
+  }, [ensureAudioContext]);
 
   const playBlob = useCallback(
     async (blob: Blob, generation: number) => {

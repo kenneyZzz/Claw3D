@@ -15,7 +15,8 @@ import type { OfficeAgent } from "@/features/retro-office/core/types";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
-  useGatewayConnection,
+  GatewayClient,
+  type GatewayStatus,
   type EventFrame,
   isSameSessionKey,
   parseAgentIdFromSessionKey,
@@ -24,6 +25,8 @@ import {
   createStudioSettingsCoordinator,
   type StudioSettingsLoadOptions,
 } from "@/lib/studio/coordinator";
+import { useZhinaoAgents } from "@/lib/hooks/useZhinaoAgents";
+import { useZhinaoChatWs } from "@/lib/hooks/useZhinaoChatWs";
 import { resolveDeskAssignments } from "@/lib/studio/settings";
 import { renameGatewayAgent } from "@/lib/gateway/agentConfig";
 import {
@@ -653,25 +656,28 @@ export function OfficeScreen({
   const [settingsCoordinator] = useState(() =>
     createStudioSettingsCoordinator(),
   );
-  const {
-    client,
-    status,
-    connectPromptReady,
-    shouldPromptForConnect,
-    gatewayUrl,
-    token,
-    localGatewayDefaults,
-    error: gatewayError,
-    connect,
-    disconnect,
-    useLocalGatewayDefaults,
-    setGatewayUrl,
-    setToken,
-  } =
-    useGatewayConnection(settingsCoordinator);
+  const [client] = useState(() => new GatewayClient());
+  const [_gatewayStatus] = useState<GatewayStatus>("disconnected");
+  const connectPromptReady = false;
+  const shouldPromptForConnect = false;
+  const [gatewayUrl, setGatewayUrl] = useState("");
+  const [token, setToken] = useState("");
+  const localGatewayDefaults = null;
+  const gatewayError: string | null = null;
+  const connect = useCallback(async () => {}, []);
+  const disconnect = useCallback(() => {}, []);
+  const useLocalGatewayDefaults = useCallback(() => {}, []);
+  const status = "connected" as const;
   const { state, dispatch, hydrateAgents, setError, setLoading } =
     useAgentStore();
-  const [agentsLoaded, setAgentsLoaded] = useState(false);
+
+  const zhinaoAgents = useZhinaoAgents({
+    hydrateAgents,
+    dispatch,
+    setLoading,
+    setError,
+  });
+  const agentsLoaded = zhinaoAgents.agentsLoaded;
   const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] = useState(false);
   const [clockTick, setClockTick] = useState(0);
   const [debugRows, setDebugRows] = useState<OfficeDebugRow[]>([]);
@@ -911,10 +917,10 @@ export function OfficeScreen({
   }, []);
 
   useEffect(() => {
-    if (status === "connecting") {
+    if (_gatewayStatus === "connecting") {
       setDidAttemptGatewayConnect(true);
     }
-  }, [status]);
+  }, [_gatewayStatus]);
 
   useEffect(() => {
     if (gatewayError) {
@@ -951,162 +957,15 @@ export function OfficeScreen({
     };
   }, [gatewayUrl, loadStudioSettings]);
 
-  const loadAgents = useCallback(async (options?: {
+  const loadAgents = useCallback(async (_options?: {
     forceSettings?: boolean;
     minIntervalMs?: number;
     onlyWhenIdleForMs?: number;
     settingsMaxAgeMs?: number;
     silent?: boolean;
   }) => {
-    if (status !== "connected") return;
-    if (loadAgentsInFlightRef.current) return loadAgentsInFlightRef.current;
-    const now = Date.now();
-    const minIntervalMs = options?.minIntervalMs ?? 0;
-    if (
-      minIntervalMs > 0 &&
-      now - lastLoadAgentsStartedAtRef.current < minIntervalMs
-    ) {
-      return;
-    }
-    const onlyWhenIdleForMs = options?.onlyWhenIdleForMs ?? 0;
-    if (
-      onlyWhenIdleForMs > 0 &&
-      now - lastGatewayActivityAtRef.current < onlyWhenIdleForMs
-    ) {
-      return;
-    }
-    lastLoadAgentsStartedAtRef.current = now;
-    const connectionEpochAtStart = connectionEpochRef.current;
-    const task = (async () => {
-      if (!options?.silent) {
-        setLoading(true);
-      }
-      try {
-        const settingsLoadOptions: StudioSettingsLoadOptions | undefined =
-          options?.forceSettings
-            ? { force: true }
-            : { maxAgeMs: options?.settingsMaxAgeMs ?? 60_000 };
-        const commands = await runStudioBootstrapLoadOperation({
-          client,
-          gatewayUrl,
-          cachedConfigSnapshot: gatewayConfigSnapshot.current,
-          loadStudioSettings: () => loadStudioSettings(settingsLoadOptions),
-          isDisconnectLikeError: isGatewayDisconnectLikeError,
-          preferredSelectedAgentId: null,
-          hasCurrentSelection: false,
-          logError: console.error,
-        });
-        if (connectionEpochAtStart !== connectionEpochRef.current) {
-          return;
-        }
-        executeStudioBootstrapLoadCommands({
-          commands,
-          setGatewayConfigSnapshot: (val: GatewayModelPolicySnapshot) => {
-            gatewayConfigSnapshot.current = val;
-          },
-          hydrateAgents,
-          dispatchUpdateAgent: (agentId, patch) => {
-            dispatch({ type: "updateAgent", agentId, patch });
-          },
-          setError,
-        });
-        if (connectionEpochAtStart !== connectionEpochRef.current) {
-          return;
-        }
-        const refreshedAgents = stateRef.current.agents;
-        const debugCollector: OfficeDebugRow[] = [];
-        const inferredByAgentId = new Map<string, boolean>();
-        await Promise.all(
-          refreshedAgents.map(async (agent) => {
-          if (connectionEpochAtStart !== connectionEpochRef.current) {
-            return;
-          }
-          try {
-            const inference = await inferRunningFromAgentSessions({
-              client,
-              agentId: agent.agentId,
-            });
-            if (connectionEpochAtStart !== connectionEpochRef.current) {
-              return;
-            }
-            const inferredRunning = inference.inferredRunning;
-            inferredByAgentId.set(agent.agentId, inferredRunning);
-            if (inference.latestSessionUpdatedAtMs > 0) {
-              setLastSeenByAgentId((prev) => ({
-                ...prev,
-                [agent.agentId]: inference.latestSessionUpdatedAtMs,
-              }));
-            }
-            const nextStatus: AgentState["status"] = inferredRunning
-              ? "running"
-              : "idle";
-            if (agent.status !== nextStatus) {
-              dispatch({
-                type: "updateAgent",
-                agentId: agent.agentId,
-                patch: {
-                  status: nextStatus,
-                  runId: inferredRunning
-                    ? (agent.runId ?? `inferred-${agent.agentId}`)
-                    : null,
-                },
-              });
-            }
-            if (debugEnabled) {
-              debugCollector.push({
-                agentId: agent.agentId,
-                name: agent.name,
-                storeStatus: agent.status,
-                runId: agent.runId,
-                inferredRunning,
-                lastRole: inference.lastRole,
-                lastText: inference.lastText,
-                messageCount: inference.messageCount,
-                detectedSessionKey: inference.sessionKey,
-                inspectedSessions: inference.inspectedSessions.join(" | "),
-                inferenceSource: inference.inferenceSource,
-                at: new Date().toISOString(),
-              });
-            }
-          } catch (error) {
-            if (!isGatewayDisconnectLikeError(error)) {
-              console.warn(
-                "Failed to infer agent run state from history.",
-                error,
-              );
-            }
-          }
-          }),
-        );
-        if (connectionEpochAtStart !== connectionEpochRef.current) {
-          return;
-        }
-        if (debugEnabled) {
-          setDebugRows(debugCollector);
-          console.info("[office-debug] Reconciled agent state.", debugCollector);
-        }
-        lastGatewayActivityAtRef.current = Date.now();
-        setAgentsLoaded(true);
-      } finally {
-        if (!options?.silent) {
-          setLoading(false);
-        }
-        loadAgentsInFlightRef.current = null;
-      }
-    })();
-    loadAgentsInFlightRef.current = task;
-    return task;
-  }, [
-    client,
-    debugEnabled,
-    dispatch,
-    gatewayUrl,
-    hydrateAgents,
-    loadStudioSettings,
-    setError,
-    setLoading,
-    status,
-  ]);
+    // Agent loading is now handled by useZhinaoAgents polling hook — this is a no-op stub.
+  }, []);
 
   const requestAgentHistoryRefresh = useCallback(
     async (params: {
@@ -1114,7 +973,7 @@ export function OfficeScreen({
       reason: "chat-final-no-trace" | "run-start-no-chat";
       sessionKey?: string;
     }) => {
-      if (status !== "connected") return;
+      if (_gatewayStatus !== "connected") return;
       const requestedSessionKey = params.sessionKey?.trim() ?? "";
       if (requestedSessionKey) {
         try {
@@ -1252,7 +1111,7 @@ export function OfficeScreen({
         });
       }
     },
-    [client, debugEnabled, dispatch, status],
+    [client, debugEnabled, dispatch, _gatewayStatus],
   );
 
   const refreshRecentTransportSessionHistory = useCallback(
@@ -1317,39 +1176,7 @@ export function OfficeScreen({
     [requestAgentHistoryRefresh],
   );
 
-  useEffect(() => {
-    if (status !== "connected" || agentsLoaded) return;
-    void loadAgents({ forceSettings: true });
-  }, [agentsLoaded, loadAgents, status]);
-
-  useEffect(() => {
-    if (status !== "connected") return;
-    if (state.loading) return;
-    if (state.agents.length > 0) return;
-    const timeoutId = window.setTimeout(() => {
-      void loadAgents({ forceSettings: true });
-    }, 500);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [loadAgents, state.agents.length, state.loading, status]);
-
-  useEffect(() => {
-    if (status === "disconnected") {
-      connectionEpochRef.current += 1;
-      setAgentsLoaded(false);
-      loadAgentsInFlightRef.current = null;
-      gatewayConfigSnapshot.current = null;
-      lastLoadAgentsStartedAtRef.current = 0;
-      hydrateAgents([]);
-      setFeedEvents([]);
-      setDebugRows([]);
-      setRunCountByAgentId({});
-      setLastSeenByAgentId({});
-      prevAssistantPreviewRef.current = {};
-      lastGatewayActivityAtRef.current = 0;
-    }
-  }, [hydrateAgents, status]);
+  /* --- original gateway load/disconnect effects disabled — data comes from useZhinaoAgents --- */
 
   useEffect(() => {
     if (!agentsLoaded) return;
@@ -1390,168 +1217,35 @@ export function OfficeScreen({
     prevAssistantPreviewRef.current = nextByAgentId;
   }, [agentsLoaded, state.agents]);
 
-  useEffect(() => {
-    if (status !== "connected" || !agentsLoaded) return;
-    const runtimeHandler = createGatewayRuntimeEventHandler({
-      getStatus: () => status,
-      getAgents: () => stateRef.current.agents,
-      dispatch: (action) => {
-        dispatch(action as never);
-      },
-      queueLivePatch: (agentId, patch) => {
-        dispatch({ type: "updateAgent", agentId, patch });
-        if ("status" in patch || "runId" in patch) {
-          const agent = stateRef.current.agents.find(
-            (entry) => entry.agentId === agentId,
-          );
-          if (agent) {
-            const wasWorking = prevWorkingRef.current[agentId] ?? false;
-            const isNowWorking =
-              patch.status === "running" || Boolean(patch.runId);
-            if (isNowWorking !== wasWorking) {
-              prevWorkingRef.current[agentId] = isNowWorking;
-              const text = isNowWorking ? "started working" : "went idle";
-              setFeedEvents((prev) =>
-                [
-                  {
-                    id: agentId,
-                    name: agent.name || "Agent",
-                    text,
-                    ts: Date.now(),
-                    kind: "status" as const,
-                  },
-                  ...prev,
-                ].slice(0, 6),
-              );
-              if (isNowWorking) {
-                setRunCountByAgentId((prev) => ({
-                  ...prev,
-                  [agentId]: (prev[agentId] ?? 0) + 1,
-                }));
-              }
-            }
-          }
-        }
-      },
-      clearPendingLivePatch: () => {},
-      loadSummarySnapshot: async () => {
-        await loadAgents({
-          minIntervalMs: 3_000,
-          settingsMaxAgeMs: 60_000,
-          silent: true,
-        });
-      },
-      requestHistoryRefresh: requestAgentHistoryRefresh,
-      refreshHeartbeatLatestUpdate: () => {},
-      bumpHeartbeatTick: () => {},
-      setTimeout: (fn, delayMs) => window.setTimeout(fn, delayMs),
-      clearTimeout: (id) => window.clearTimeout(id),
-      isDisconnectLikeError: isGatewayDisconnectLikeError,
-      logWarn: (message, meta) => console.warn(message, meta),
-      updateSpecialLatestUpdate: () => {},
-    });
+  /* --- gateway runtime event handler + periodic refresh effects disabled — data comes from useZhinaoAgents polling --- */
 
-    // Run reconciliation before subscribing to events so dedup keys are
-    // populated in the trigger state. This prevents stale gateway event
-    // replays from setting timed room holds on page load.
-    setOfficeTriggerState((previous) =>
-      reconcileOfficeAnimationTriggerState({
-        state: previous,
-        agents: stateRef.current.agents,
-      }),
-    );
-    const unsubscribeEvent = client.onEvent((event) => {
-      lastGatewayActivityAtRef.current = Date.now();
-      setOpenClawLogEntries((previous) => {
-        const next = [...previous, formatOpenClawEventLogEntry(event)];
-        return next.slice(-MAX_OPENCLAW_LOG_ENTRIES);
-      });
-      refreshRecentTransportSessionHistory(event);
-      setOfficeTriggerState((previous) =>
-        reduceOfficeAnimationTriggerEvent({
-          state: previous,
-          event,
-          agents: stateRef.current.agents,
-        }),
-      );
-      if (debugEnabled) {
-        console.info("[office-debug] Gateway event.", {
-          event: event.event,
-          seq: event.seq,
-          payload:
-            typeof event.payload === "object" && event.payload !== null
-              ? JSON.stringify(event.payload).slice(0, 220)
-              : (event.payload ?? null),
-        });
+  const shownBubbleKeysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!agentsLoaded) return;
+    const { bubbleTexts, activities } = zhinaoAgents;
+    for (const activity of activities) {
+      const agentId = activity.agentId;
+      const texts = activity.pops ?? bubbleTexts.get(agentId) ?? [];
+      for (const text of texts) {
+        if (!text) continue;
+        const key = `${agentId}::${text}`;
+        if (shownBubbleKeysRef.current.has(key)) continue;
+        shownBubbleKeysRef.current.add(key);
+        setFeedEvents((prev) =>
+          [
+            {
+              id: agentId,
+              name: activity.name || "Agent",
+              text,
+              ts: Date.now(),
+              kind: "reply" as const,
+            },
+            ...prev,
+          ].slice(0, 6),
+        );
       }
-      if (
-        shouldSuppressPhoneBoothAssistantReply({
-          event,
-          agents: stateRef.current.agents,
-          phoneCallByAgentId: officeTriggerStateRef.current.phoneCallByAgentId,
-        })
-      ) {
-        return;
-      }
-      runtimeHandler.handleEvent(event);
-    });
-    const unsubscribeGap = client.onGap(() => {
-      void loadAgents({
-        minIntervalMs: 5_000,
-        settingsMaxAgeMs: 30_000,
-        silent: true,
-      });
-    });
-
-    return () => {
-      unsubscribeEvent();
-      unsubscribeGap();
-      runtimeHandler.dispose();
-    };
-  }, [
-    agentsLoaded,
-    client,
-    debugEnabled,
-    dispatch,
-    loadAgents,
-    refreshRecentTransportSessionHistory,
-    requestAgentHistoryRefresh,
-    status,
-  ]);
-
-  useEffect(() => {
-    if (status !== "connected" || !agentsLoaded) return;
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      void loadAgents({
-        minIntervalMs: 60_000,
-        onlyWhenIdleForMs: 120_000,
-        settingsMaxAgeMs: 180_000,
-        silent: true,
-      });
-    }, 60_000);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [agentsLoaded, loadAgents, status]);
-
-  useEffect(() => {
-    if (status !== "connected" || !agentsLoaded) return;
-    const handleFocus = () => {
-      if (document.visibilityState !== "visible") return;
-      void loadAgents({
-        minIntervalMs: 15_000,
-        settingsMaxAgeMs: 30_000,
-        silent: true,
-      });
-    };
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
-  }, [agentsLoaded, loadAgents, status]);
+    }
+  }, [agentsLoaded, zhinaoAgents]);
 
   useEffect(() => {
     setOfficeTriggerState((previous) =>
@@ -1606,31 +1300,7 @@ export function OfficeScreen({
     setQaTestingAgentId(null);
   }, [qaTestingAgentId, state.agents]);
 
-  useEffect(() => {
-    if (status !== "connected") return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await client.call<{ models: GatewayModelChoice[] }>(
-          "models.list",
-          {},
-        );
-        if (!cancelled) {
-          setGatewayModels(
-            buildGatewayModelChoices(
-              Array.isArray(result.models) ? result.models : [],
-              null,
-            ),
-          );
-        }
-      } catch {
-        // Models are optional - chat still works without model selection.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [status, client]);
+  /* --- models.list gateway call disabled — not needed with zhinao data source --- */
 
   useEffect(() => {
     if (chatOpen && !selectedChatAgentId && state.agents.length > 0) {
@@ -1640,7 +1310,7 @@ export function OfficeScreen({
 
   const chatController = useChatInteractionController({
     client,
-    status,
+    status: _gatewayStatus,
     agents: state.agents,
     dispatch: (action) => dispatch(action as never),
     setError,
@@ -1653,6 +1323,11 @@ export function OfficeScreen({
     setMobilePaneChat: () => {},
   });
 
+  const zhinaoChat = useZhinaoChatWs({
+    agentId: selectedChatAgentId,
+    open: chatOpen,
+  });
+
   const focusedChatAgent = selectedChatAgentId
     ? (state.agents.find((agent) => agent.agentId === selectedChatAgentId) ??
       null)
@@ -1662,7 +1337,7 @@ export function OfficeScreen({
     : null;
   const mainAgent =
     state.agents.find((agent) => agent.agentId === MAIN_AGENT_ID) ?? null;
-  const runLog = useRunLog({ client, status, agents: state.agents });
+  const runLog = useRunLog({ client, status: _gatewayStatus, agents: state.agents });
   const standupAgentSnapshots = useMemo<StandupAgentSnapshot[]>(
     () =>
       state.agents.map((agent) => ({
@@ -1693,13 +1368,14 @@ export function OfficeScreen({
   }, []);
   const marketplace = useOfficeSkillsMarketplace({
     client,
-    status,
+    status: _gatewayStatus,
     agents: state.agents,
     preferredAgentId: selectedChatAgentId,
     onSkillActivityStart: handleMarketplaceGymStart,
     onSkillActivityEnd: handleMarketplaceGymEnd,
   });
-  const animationNowMs = Date.now();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const animationNowMs = useMemo(() => Date.now(), [clockTick]);
   const officeAnimationState = useMemo(
     () =>
       buildOfficeAnimationState({
@@ -1760,14 +1436,22 @@ export function OfficeScreen({
           next[agentId] = previousUntil;
         }
       }
-      prevImmediateGymHoldRef.current = Object.fromEntries(
-        state.agents.map((agent) => [
-          agent.agentId,
-          Boolean(immediateGymHoldByAgentId[agent.agentId]),
-        ]),
-      );
+      const prevKeys = Object.keys(previous);
+      const nextKeys = Object.keys(next);
+      if (
+        prevKeys.length === nextKeys.length &&
+        prevKeys.every((k) => previous[k] === next[k])
+      ) {
+        return previous;
+      }
       return next;
     });
+    prevImmediateGymHoldRef.current = Object.fromEntries(
+      state.agents.map((agent) => [
+        agent.agentId,
+        Boolean(immediateGymHoldByAgentId[agent.agentId]),
+      ]),
+    );
   }, [immediateGymHoldByAgentId, state.agents]);
 
   const activeGithubReviewAgentId = useMemo(
@@ -2322,10 +2006,10 @@ export function OfficeScreen({
         return;
       }
 
-      await chatController.handleSend(agentId, sessionKey, trimmed);
+      zhinaoChat.send(trimmed);
     },
     [
-      chatController,
+      zhinaoChat,
       dispatch,
       phoneCallByAgentId,
       stopVoiceReplyPlayback,
@@ -2714,43 +2398,7 @@ export function OfficeScreen({
     [marketplace.skillsReport],
   );
 
-  if (
-    !agentsLoaded &&
-    (!connectPromptReady ||
-      (gatewayUrl.trim().length > 0 &&
-        !shouldPromptForConnect &&
-        (!didAttemptGatewayConnect || status === "connecting")))
-  ) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black font-mono text-[#4FC3F7]">
-        CONNECTING TO GATEWAY...
-      </div>
-    );
-  }
-
-  if (
-    connectPromptReady &&
-    status === "disconnected" &&
-    !agentsLoaded &&
-    (shouldPromptForConnect || didAttemptGatewayConnect)
-  ) {
-    return (
-      <main className="min-h-screen bg-black px-4 py-10">
-        <GatewayConnectScreen
-          gatewayUrl={gatewayUrl}
-          token={token}
-          localGatewayDefaults={localGatewayDefaults}
-          status={status}
-          error={gatewayError}
-          showApprovalHint={didAttemptGatewayConnect}
-          onGatewayUrlChange={setGatewayUrl}
-          onTokenChange={setToken}
-          onUseLocalDefaults={useLocalGatewayDefaults}
-          onConnect={() => void connect()}
-        />
-      </main>
-    );
-  }
+  /* --- gateway connection screens bypassed --- */
 
   const runningCount = state.agents.filter(
     (agent) =>
@@ -2805,7 +2453,7 @@ export function OfficeScreen({
         }}
         atmAnalytics={{
           client,
-          status,
+          status: _gatewayStatus,
           agents: state.agents,
           gatewayUrl,
           settingsCoordinator,
@@ -2909,7 +2557,7 @@ export function OfficeScreen({
           playbooksPanel={
             <PlaybooksPanel
               client={client}
-              status={status}
+              status={_gatewayStatus}
               agents={state.agents}
               standup={standupController}
             />
@@ -2927,7 +2575,7 @@ export function OfficeScreen({
           analyticsPanel={
             <AnalyticsPanel
               client={client}
-              status={status}
+              status={_gatewayStatus}
               agents={state.agents}
               runLog={runLog}
               gatewayUrl={gatewayUrl}
@@ -2954,7 +2602,7 @@ export function OfficeScreen({
           }}
           onComplete={handleCompleteOnboarding}
           connectionError={gatewayError}
-          connecting={status === "connecting"}
+          connecting={_gatewayStatus === "connecting"}
         />
       ) : null}
 
@@ -3224,65 +2872,68 @@ export function OfficeScreen({
 
             <div className="flex min-w-0 flex-1 flex-col">
               {focusedChatAgent ? (
-                <AgentChatPanel
-                  agent={focusedChatAgent}
-                  isSelected={false}
-                  canSend={status === "connected"}
-                  models={gatewayModels}
-                  stopBusy={
-                    chatController.stopBusyAgentId === focusedChatAgent.agentId
-                  }
-                  onLoadMoreHistory={() => {}}
-                  onOpenSettings={() => {
-                    router.push("/office");
-                  }}
-                  onNewSession={() =>
-                    chatController.handleNewSession(focusedChatAgent.agentId)
-                  }
-                  onModelChange={(value) =>
-                    dispatch({
-                      type: "updateAgent",
-                      agentId: focusedChatAgent.agentId,
-                      patch: { model: value ?? undefined },
-                    })
-                  }
-                  onThinkingChange={(value) =>
-                    dispatch({
-                      type: "updateAgent",
-                      agentId: focusedChatAgent.agentId,
-                      patch: { thinkingLevel: value ?? undefined },
-                    })
-                  }
-                  onDraftChange={(value) =>
-                    chatController.handleDraftChange(
-                      focusedChatAgent.agentId,
-                      value,
-                    )
-                  }
-                  onSend={(message) => {
-                    void handleChatSend(
-                      focusedChatAgent.agentId,
-                      focusedChatAgent.sessionKey,
-                      message,
-                    );
-                  }}
-                  onRemoveQueuedMessage={(index) =>
-                    chatController.removeQueuedMessage(
-                      focusedChatAgent.agentId,
-                      index,
-                    )
-                  }
-                  onStopRun={() => {
-                    void chatController.handleStopRun(
-                      focusedChatAgent.agentId,
-                      focusedChatAgent.sessionKey,
-                    );
-                  }}
-                  onAvatarShuffle={() =>
-                    openAgentEditor(focusedChatAgent.agentId, "avatar")
-                  }
-                  onVoiceSend={handleVoiceSend}
-                />
+                <div className="flex flex-1 flex-col">
+                  <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                    <span className="font-mono text-[11px] font-semibold text-white/80">
+                      {focusedChatAgent.name || focusedChatAgent.agentId}
+                    </span>
+                    <span className={`font-mono text-[10px] ${zhinaoChat.connected ? "text-emerald-400" : "text-white/30"}`}>
+                      {zhinaoChat.connected ? "connected" : "disconnected"}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+                    {zhinaoChat.messages.map((msg, idx) => (
+                      <div
+                        key={msg.id ?? idx}
+                        className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded px-2.5 py-1.5 font-mono text-[11px] whitespace-pre-wrap break-words ${
+                            msg.sender === "user"
+                              ? "bg-amber-500/20 text-amber-100"
+                              : "bg-white/5 text-white/80"
+                          }`}
+                        >
+                          {msg.isLoading && !msg.text ? (
+                            <span className="animate-pulse text-white/40">thinking...</span>
+                          ) : (
+                            msg.text
+                          )}
+                          {msg.isStreaming && (
+                            <span className="animate-pulse text-cyan-400">▌</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <form
+                    className="flex items-center gap-2 border-t border-white/10 px-3 py-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const input = form.elements.namedItem("chatInput") as HTMLInputElement;
+                      const value = input?.value?.trim();
+                      if (value) {
+                        zhinaoChat.send(value);
+                        input.value = "";
+                      }
+                    }}
+                  >
+                    <input
+                      name="chatInput"
+                      type="text"
+                      placeholder="Type a message..."
+                      className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2.5 py-1.5 font-mono text-[11px] text-white placeholder-white/30 outline-none focus:border-amber-500/50"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded border border-amber-700/50 bg-amber-500/15 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-amber-400 transition-colors hover:bg-amber-500/25"
+                    >
+                      Send
+                    </button>
+                  </form>
+                </div>
               ) : (
                 <div className="flex flex-1 items-center justify-center font-mono text-[12px] text-white/30">
                   Select an agent to chat.

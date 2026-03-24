@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { Environment, OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as THREE from "three";
+import { Environment, OrbitControls } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
 import {
   type AgentAvatarProfile,
   createDefaultAgentAvatarProfile,
-} from "@/lib/avatars/profile";
+} from '@/lib/avatars/profile';
 
 const PreviewFigure = ({
   profile,
@@ -29,7 +29,8 @@ const PreviewFigure = ({
       onFirstFrame();
     }
     if (!groupRef.current) return;
-    groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.45) * 0.35 + 0.25;
+    groupRef.current.rotation.y =
+      Math.sin(state.clock.elapsedTime * 0.45) * 0.35 + 0.25;
   });
 
   const skin = profile.body.skinTone;
@@ -38,8 +39,10 @@ const PreviewFigure = ({
   const shoeColor = profile.clothing.shoesColor;
   const hairColor = profile.hair.color;
   const accessoryColor = topColor;
-  const sleeveColor = profile.clothing.topStyle === "jacket" ? "#dbe4ff" : topColor;
-  const cuffColor = profile.clothing.topStyle === "hoodie" ? "#d1d5db" : sleeveColor;
+  const sleeveColor =
+    profile.clothing.topStyle === 'jacket' ? '#dbe4ff' : topColor;
+  const cuffColor =
+    profile.clothing.topStyle === 'hoodie' ? '#d1d5db' : sleeveColor;
 
   return (
     <group ref={groupRef} position={[0, -0.72, 0]} scale={[1.45, 1.45, 1.45]}>
@@ -58,7 +61,7 @@ const PreviewFigure = ({
       ) : null}
 
       <group position={[-0.05, 0.12, 0]}>
-        {profile.clothing.bottomStyle === "shorts" ? (
+        {profile.clothing.bottomStyle === 'shorts' ? (
           <>
             <mesh position={[0, 0.03, 0]}>
               <boxGeometry args={[0.07, 0.08, 0.08]} />
@@ -81,7 +84,7 @@ const PreviewFigure = ({
         </mesh>
       </group>
       <group position={[0.05, 0.12, 0]}>
-        {profile.clothing.bottomStyle === "shorts" ? (
+        {profile.clothing.bottomStyle === 'shorts' ? (
           <>
             <mesh position={[0, 0.03, 0]}>
               <boxGeometry args={[0.07, 0.08, 0.08]} />
@@ -108,7 +111,7 @@ const PreviewFigure = ({
         <boxGeometry args={[0.2, 0.22, 0.1]} />
         <meshLambertMaterial color={topColor} />
       </mesh>
-      {profile.clothing.topStyle === "hoodie" ? (
+      {profile.clothing.topStyle === 'hoodie' ? (
         <>
           <mesh position={[0, 0.37, -0.045]}>
             <boxGeometry args={[0.18, 0.1, 0.03]} />
@@ -120,7 +123,7 @@ const PreviewFigure = ({
           </mesh>
         </>
       ) : null}
-      {profile.clothing.topStyle === "jacket" ? (
+      {profile.clothing.topStyle === 'jacket' ? (
         <>
           <mesh position={[0, 0.3, 0.056]}>
             <boxGeometry args={[0.202, 0.23, 0.012]} />
@@ -138,7 +141,7 @@ const PreviewFigure = ({
           <boxGeometry args={[0.06, 0.16, 0.06]} />
           <meshLambertMaterial color={sleeveColor} />
         </mesh>
-        {profile.clothing.topStyle === "hoodie" ? (
+        {profile.clothing.topStyle === 'hoodie' ? (
           <mesh position={[0, -0.145, 0]}>
             <boxGeometry args={[0.064, 0.03, 0.064]} />
             <meshLambertMaterial color={cuffColor} />
@@ -154,7 +157,7 @@ const PreviewFigure = ({
           <boxGeometry args={[0.06, 0.16, 0.06]} />
           <meshLambertMaterial color={sleeveColor} />
         </mesh>
-        {profile.clothing.topStyle === "hoodie" ? (
+        {profile.clothing.topStyle === 'hoodie' ? (
           <mesh position={[0, -0.145, 0]}>
             <boxGeometry args={[0.064, 0.03, 0.064]} />
             <meshLambertMaterial color={cuffColor} />
@@ -175,13 +178,13 @@ const PreviewFigure = ({
         <meshLambertMaterial color={skin} />
       </mesh>
 
-      {profile.hair.style === "short" ? (
+      {profile.hair.style === 'short' ? (
         <mesh position={[0, 0.59, 0]}>
           <boxGeometry args={[0.18, 0.05, 0.15]} />
           <meshLambertMaterial color={hairColor} />
         </mesh>
       ) : null}
-      {profile.hair.style === "parted" ? (
+      {profile.hair.style === 'parted' ? (
         <>
           <mesh position={[0, 0.585, 0]}>
             <boxGeometry args={[0.18, 0.045, 0.15]} />
@@ -193,7 +196,7 @@ const PreviewFigure = ({
           </mesh>
         </>
       ) : null}
-      {profile.hair.style === "spiky" ? (
+      {profile.hair.style === 'spiky' ? (
         <>
           <mesh position={[0, 0.58, 0]}>
             <boxGeometry args={[0.17, 0.035, 0.14]} />
@@ -213,7 +216,7 @@ const PreviewFigure = ({
           </mesh>
         </>
       ) : null}
-      {profile.hair.style === "bun" ? (
+      {profile.hair.style === 'bun' ? (
         <>
           <mesh position={[0, 0.58, 0]}>
             <boxGeometry args={[0.18, 0.04, 0.15]} />
@@ -226,7 +229,7 @@ const PreviewFigure = ({
         </>
       ) : null}
 
-      {profile.accessories.hatStyle === "cap" ? (
+      {profile.accessories.hatStyle === 'cap' ? (
         <>
           <mesh position={[0, 0.63, 0]}>
             <boxGeometry args={[0.18, 0.03, 0.16]} />
@@ -238,7 +241,7 @@ const PreviewFigure = ({
           </mesh>
         </>
       ) : null}
-      {profile.accessories.hatStyle === "beanie" ? (
+      {profile.accessories.hatStyle === 'beanie' ? (
         <mesh position={[0, 0.63, 0]}>
           <boxGeometry args={[0.19, 0.06, 0.17]} />
           <meshLambertMaterial color={accessoryColor} />
@@ -294,16 +297,36 @@ const PreviewFigure = ({
   );
 };
 
+function ContextLossHandler() {
+  const { gl, invalidate } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const handleLost = (e: Event) => {
+      e.preventDefault();
+    };
+    const handleRestored = () => {
+      invalidate();
+    };
+    canvas.addEventListener('webglcontextlost', handleLost);
+    canvas.addEventListener('webglcontextrestored', handleRestored);
+    return () => {
+      canvas.removeEventListener('webglcontextlost', handleLost);
+      canvas.removeEventListener('webglcontextrestored', handleRestored);
+    };
+  }, [gl, invalidate]);
+  return null;
+}
+
 export const AgentAvatarPreview3D = ({
   profile,
-  className = "",
+  className = '',
 }: {
   profile: AgentAvatarProfile | null | undefined;
   className?: string;
 }) => {
   const resolvedProfile = useMemo(
-    () => profile ?? createDefaultAgentAvatarProfile("preview"),
-    [profile]
+    () => profile ?? createDefaultAgentAvatarProfile('preview'),
+    [profile],
   );
   const [isReady, setIsReady] = useState(false);
 
@@ -322,10 +345,15 @@ export const AgentAvatarPreview3D = ({
         </div>
       ) : null}
       <Canvas camera={{ position: [0, 0.7, 2.5], fov: 34 }}>
-        <color attach="background" args={["#070b16"]} />
+        <ContextLossHandler />
+        <color attach="background" args={['#070b16']} />
         <ambientLight intensity={1.4} />
         <directionalLight position={[3, 4, 5]} intensity={2.4} />
-        <directionalLight position={[-4, 2, 3]} intensity={0.9} color="#89a6ff" />
+        <directionalLight
+          position={[-4, 2, 3]}
+          intensity={0.9}
+          color="#89a6ff"
+        />
         <PreviewFigure
           profile={resolvedProfile}
           onFirstFrame={() => {
@@ -333,7 +361,12 @@ export const AgentAvatarPreview3D = ({
           }}
         />
         <Environment preset="city" />
-        <OrbitControls enablePan={false} enableZoom={false} maxPolarAngle={1.8} minPolarAngle={1.1} />
+        <OrbitControls
+          enablePan={false}
+          enableZoom={false}
+          maxPolarAngle={1.8}
+          minPolarAngle={1.1}
+        />
       </Canvas>
     </div>
   );
