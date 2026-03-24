@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,12 +37,14 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var d=t?t==='dark':m;document.documentElement.classList.toggle('dark',d);}catch(e){}})();",
+              "(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;document.documentElement.classList.toggle('dark',d);}catch(e){}})();",
           }}
         />
       </head>
       <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
-        <main className="h-screen w-screen overflow-hidden bg-background">{children}</main>
+        <I18nProvider>
+          <main className="h-screen w-screen overflow-hidden bg-background">{children}</main>
+        </I18nProvider>
       </body>
     </html>
   );

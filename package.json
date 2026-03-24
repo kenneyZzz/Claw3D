@@ -17,13 +17,16 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@antv/infographic": "^0.2.16",
     "@noble/ed25519": "^3.0.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@terrastruct/d2": "^0.1.33",
     "@vercel/otel": "^2.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
+    "markstream-react": "^0.0.32",
     "next": "16.1.6",
     "phaser": "^3.90.0",
     "react": "19.2.3",

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   type ReactNode,
@@ -7,34 +7,35 @@ import {
   useMemo,
   useRef,
   useState,
-} from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { MessageSquare, ChevronDown, Mic } from "lucide-react";
-import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
-import type { OfficeAgent } from "@/features/retro-office/core/types";
-import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
-import { useAgentStore, type AgentState } from "@/features/agents/state/store";
+} from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Mic } from 'lucide-react';
+import { RetroOffice3D } from '@/features/retro-office/RetroOffice3D';
+import type { OfficeAgent } from '@/features/retro-office/core/types';
+// import { GatewayConnectScreen } from '@/features/agents/components/GatewayConnectScreen';
+import { useAgentStore, type AgentState } from '@/features/agents/state/store';
 import {
   GatewayClient,
   type GatewayStatus,
   type EventFrame,
   isSameSessionKey,
   parseAgentIdFromSessionKey,
-} from "@/lib/gateway/GatewayClient";
+} from '@/lib/gateway/GatewayClient';
 import {
   createStudioSettingsCoordinator,
   type StudioSettingsLoadOptions,
-} from "@/lib/studio/coordinator";
-import { useZhinaoAgents } from "@/lib/hooks/useZhinaoAgents";
-import { useZhinaoChatWs } from "@/lib/hooks/useZhinaoChatWs";
-import { resolveDeskAssignments } from "@/lib/studio/settings";
-import { renameGatewayAgent } from "@/lib/gateway/agentConfig";
-import {
-  runStudioBootstrapLoadOperation,
-  executeStudioBootstrapLoadCommands,
-} from "@/features/agents/operations/studioBootstrapOperation";
-import { isGatewayDisconnectLikeError } from "@/lib/gateway/GatewayClient";
-import { createGatewayRuntimeEventHandler } from "@/features/agents/state/gatewayRuntimeEventHandler";
+} from '@/lib/studio/coordinator';
+import { useZhinaoAgents } from '@/features/office/hooks/useZhinaoAgents';
+import { setZhinaoAuthParams } from '@/lib/zhinao-api';
+// import { useZhinaoChatWs } from '@/features/office/hooks/useZhinaoChatWs';
+import { resolveDeskAssignments } from '@/lib/studio/settings';
+import { renameGatewayAgent } from '@/lib/gateway/agentConfig';
+// import {
+//   runStudioBootstrapLoadOperation,
+//   executeStudioBootstrapLoadCommands,
+// } from '@/features/agents/operations/studioBootstrapOperation';
+import { isGatewayDisconnectLikeError } from '@/lib/gateway/GatewayClient';
+// import { createGatewayRuntimeEventHandler } from '@/features/agents/state/gatewayRuntimeEventHandler';
 import {
   buildHistoryLines,
   classifyGatewayEventKind,
@@ -42,64 +43,63 @@ import {
   type AgentEventPayload,
   type ChatEventPayload,
   type SummaryPreviewSnapshot,
-} from "@/features/agents/state/runtimeEventBridge";
+} from '@/features/agents/state/runtimeEventBridge';
 import {
   extractText,
   extractThinking,
   extractToolLines,
   isHeartbeatPrompt,
   stripUiMetadata,
-} from "@/lib/text/message-extract";
-import { resolveOfficeIntentSnapshot } from "@/lib/office/deskDirectives";
-import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
+} from '@/lib/text/message-extract';
+import { resolveOfficeIntentSnapshot } from '@/lib/office/deskDirectives';
+// import { AgentChatPanel } from '@/features/agents/components/AgentChatPanel';
 import {
   AgentEditorModal,
   type AgentEditorSection,
-} from "@/features/agents/components/AgentEditorModal";
-import { useChatInteractionController } from "@/features/agents/operations/useChatInteractionController";
+} from '@/features/agents/components/AgentEditorModal';
+import { useChatInteractionController } from '@/features/agents/operations/useChatInteractionController';
 import {
   executeHistorySyncCommands,
   runHistorySyncOperation,
-} from "@/features/agents/operations/historySyncOperation";
+} from '@/features/agents/operations/historySyncOperation';
 import {
   RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT,
   RUNTIME_SYNC_MAX_HISTORY_LIMIT,
-} from "@/features/agents/operations/runtimeSyncControlWorkflow";
+} from '@/features/agents/operations/runtimeSyncControlWorkflow';
 import {
   TRANSCRIPT_V2_ENABLED,
   logTranscriptDebugMetric,
-} from "@/features/agents/state/transcript";
-import {
-  buildGatewayModelChoices,
-  type GatewayModelChoice,
-} from "@/lib/gateway/models";
-import type { GatewayModelPolicySnapshot } from "@/lib/gateway/models";
-import type { AgentAvatarProfile } from "@/lib/avatars/profile";
-import { randomUUID } from "@/lib/uuid";
+} from '@/features/agents/state/transcript';
+// import {
+//   buildGatewayModelChoices,
+//   type GatewayModelChoice,
+// } from '@/lib/gateway/models';
+import type { GatewayModelPolicySnapshot } from '@/lib/gateway/models';
+import type { AgentAvatarProfile } from '@/lib/avatars/profile';
+import { randomUUID } from '@/lib/uuid';
 import {
   HQSidebar,
   type HQSidebarTab,
-} from "@/features/office/components/HQSidebar";
-import { AnalyticsPanel } from "@/features/office/components/panels/AnalyticsPanel";
-import { HistoryPanel } from "@/features/office/components/panels/HistoryPanel";
-import { InboxPanel } from "@/features/office/components/panels/InboxPanel";
-import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPanel";
-import { SkillsMarketplacePanel } from "@/features/office/components/panels/SkillsMarketplacePanel";
-import { useOfficeSkillsMarketplace } from "@/features/office/hooks/useOfficeSkillsMarketplace";
-import { useOfficeStandupController } from "@/features/office/hooks/useOfficeStandupController";
-import { useRunLog } from "@/features/office/hooks/useRunLog";
-import {
-  OnboardingWizard,
-  useOnboardingState,
-} from "@/features/onboarding";
-import { useFinalizedAssistantReplyListener } from "@/hooks/useFinalizedAssistantReplyListener";
-import { useStudioOfficePreference } from "@/hooks/useStudioOfficePreference";
-import { useStudioVoiceRepliesPreference } from "@/hooks/useStudioVoiceRepliesPreference";
+} from '@/features/office/components/HQSidebar';
+import { AnalyticsPanel } from '@/features/office/components/panels/AnalyticsPanel';
+import { HistoryPanel } from '@/features/office/components/panels/HistoryPanel';
+import { InboxPanel } from '@/features/office/components/panels/InboxPanel';
+import { PlaybooksPanel } from '@/features/office/components/panels/PlaybooksPanel';
+import { SkillsMarketplacePanel } from '@/features/office/components/panels/SkillsMarketplacePanel';
+import { OfficeChatDock } from '@/features/office/components/OfficeChatDock';
+import { useOfficeSkillsMarketplace } from '@/features/office/hooks/useOfficeSkillsMarketplace';
+import { useOfficeStandupController } from '@/features/office/hooks/useOfficeStandupController';
+import { useRunLog } from '@/features/office/hooks/useRunLog';
+import { useI18n } from '@/lib/i18n';
+import { OnboardingWizard, useOnboardingState } from '@/features/onboarding';
+import { useFinalizedAssistantReplyListener } from '@/hooks/useFinalizedAssistantReplyListener';
+import { useStudioOfficePreference } from '@/hooks/useStudioOfficePreference';
+import { useStudioVoiceRepliesPreference } from '@/hooks/useStudioVoiceRepliesPreference';
 import {
   useVoiceRecorder,
   type VoiceSendPayload,
-} from "@/hooks/useVoiceRecorder";
-import { useVoiceReplyPlayback } from "@/hooks/useVoiceReplyPlayback";
+} from '@/hooks/useVoiceRecorder';
+import { useVoiceReplyPlayback } from '@/hooks/useVoiceReplyPlayback';
 import {
   buildOfficeAnimationState,
   clearOfficeAnimationTriggerHold,
@@ -108,15 +108,16 @@ import {
   reduceOfficeAnimationTriggerEvent,
   type OfficePhoneCallRequest,
   type OfficeTextMessageRequest,
-} from "@/lib/office/eventTriggers";
-import type { MockPhoneCallScenario } from "@/lib/office/call/types";
-import type { MockTextMessageScenario } from "@/lib/office/text/types";
+} from '@/lib/office/eventTriggers';
+import { buildOfficeAgentIdsKey } from '@/lib/office/agentIds';
+import type { MockPhoneCallScenario } from '@/lib/office/call/types';
+import type { MockTextMessageScenario } from '@/lib/office/text/types';
 import {
   buildOfficeDeskMonitor,
   type OfficeDeskMonitor,
-} from "@/lib/office/deskMonitor";
-import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
-import type { SkillStatusEntry } from "@/lib/skills/types";
+} from '@/lib/office/deskMonitor';
+import type { StandupAgentSnapshot } from '@/lib/office/standup/types';
+import type { SkillStatusEntry } from '@/lib/skills/types';
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -124,23 +125,23 @@ const stringToColor = (str: string) => {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const c = (hash & 0x00ffffff).toString(16).toUpperCase();
-  return "#" + "00000".substring(0, 6 - c.length) + c;
+  return '#' + '00000'.substring(0, 6 - c.length) + c;
 };
 
 const ITEMS = [
-  "globe",
-  "books",
-  "coffee",
-  "palette",
-  "camera",
-  "waveform",
-  "shield",
-  "fire",
-  "plant",
-  "laptop",
+  'globe',
+  'books',
+  'coffee',
+  'palette',
+  'camera',
+  'waveform',
+  'shield',
+  'fire',
+  'plant',
+  'laptop',
 ];
 const GYM_WORKOUT_LATCH_MS = 60_000;
-const MAIN_AGENT_ID = "main";
+const MAIN_AGENT_ID = 'main';
 const MAX_OPENCLAW_LOG_ENTRIES = 200;
 const MAX_OPENCLAW_AGENT_OUTPUT_LINES = 12;
 
@@ -200,20 +201,21 @@ const createOpenClawLogEntry = (params: {
 
 const formatOpenClawTimestamp = (timestampMs: number) => {
   const date = new Date(timestampMs);
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  const ss = String(date.getSeconds()).padStart(2, "0");
-  const ms = String(date.getMilliseconds()).padStart(3, "0");
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  const ms = String(date.getMilliseconds()).padStart(3, '0');
   return `${hh}:${mm}:${ss}.${ms}`;
 };
 
 const formatOpenClawValue = (value: string | null | undefined) => {
-  const trimmed = value?.trim() ?? "";
-  return trimmed || "-";
+  const trimmed = value?.trim() ?? '';
+  return trimmed || '-';
 };
 
 const buildPhoneCallOutputLine = (text: string) => `[phone booth] ${text}`;
-const buildTextMessageOutputLine = (text: string) => `[messaging booth] ${text}`;
+const buildTextMessageOutputLine = (text: string) =>
+  `[messaging booth] ${text}`;
 
 const PHONE_BOOTH_ASSISTANT_FALLBACK_RE =
   /\b(?:i\s+)?can(?:not|['’]t)\s+(?:place|make)\s+(?:phone\s+)?calls?\b/i;
@@ -223,20 +225,21 @@ const shouldSuppressPhoneBoothAssistantReply = (params: {
   event: EventFrame;
   phoneCallByAgentId: Record<string, OfficePhoneCallRequest>;
 }): boolean => {
-  if (classifyGatewayEventKind(params.event.event) !== "runtime-chat") return false;
+  if (classifyGatewayEventKind(params.event.event) !== 'runtime-chat')
+    return false;
   const payload = params.event.payload as ChatEventPayload | undefined;
   if (!payload?.sessionKey) return false;
   const message =
-    typeof payload.message === "object" && payload.message !== null
+    typeof payload.message === 'object' && payload.message !== null
       ? (payload.message as Record<string, unknown>)
       : null;
-  const role = typeof message?.role === "string" ? message.role : null;
-  if (role !== "assistant") return false;
-  const text = extractText(payload.message)?.trim() ?? "";
+  const role = typeof message?.role === 'string' ? message.role : null;
+  if (role !== 'assistant') return false;
+  const text = extractText(payload.message)?.trim() ?? '';
   if (!text || !PHONE_BOOTH_ASSISTANT_FALLBACK_RE.test(text)) return false;
   const agentId =
-    params.agents.find((agent) => agent.sessionKey === payload.sessionKey)?.agentId ??
-    parseAgentIdFromSessionKey(payload.sessionKey);
+    params.agents.find((agent) => agent.sessionKey === payload.sessionKey)
+      ?.agentId ?? parseAgentIdFromSessionKey(payload.sessionKey);
   if (!agentId) return false;
   return Boolean(params.phoneCallByAgentId[agentId]);
 };
@@ -245,12 +248,12 @@ const safeJsonStringify = (value: unknown) => {
   try {
     return JSON.stringify(value, null, 2) ?? String(value);
   } catch (error) {
-    return `[unserializable payload: ${error instanceof Error ? error.message : "unknown error"}]`;
+    return `[unserializable payload: ${error instanceof Error ? error.message : 'unknown error'}]`;
   }
 };
 
 const escapeRegExp = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const renderOpenClawHighlightedText = (
   value: string,
@@ -259,7 +262,7 @@ const renderOpenClawHighlightedText = (
   if (!query) return value;
   const trimmedQuery = query.trim();
   if (!trimmedQuery) return value;
-  const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, "gi");
+  const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, 'gi');
   return value.split(pattern).map((part, index) =>
     part.toLowerCase() === trimmedQuery.toLowerCase() ? (
       <mark
@@ -274,78 +277,78 @@ const renderOpenClawHighlightedText = (
   );
 };
 
-const resolveMessageRole = (message: unknown) =>
-  message && typeof message === "object"
-    ? ((message as Record<string, unknown>).role ?? null)
-    : null;
+// const resolveMessageRole = (message: unknown) =>
+//   message && typeof message === 'object'
+//     ? ((message as Record<string, unknown>).role ?? null)
+//     : null;
 
-const formatOpenClawEventLogEntry = (event: EventFrame): OpenClawLogEntry => {
-  const eventKind = classifyGatewayEventKind(event.event);
-  const baseSummary = `seq=${event.seq ?? "-"} stateVersion=${safeJsonStringify(event.stateVersion ?? null)}`;
-  let summary = baseSummary;
-  let role: string | null = null;
-  let messageText: string | null = null;
-  let thinkingText: string | null = null;
-  let streamText: string | null = null;
-  let toolText: string | null = null;
+// const formatOpenClawEventLogEntry = (event: EventFrame): OpenClawLogEntry => {
+//   const eventKind = classifyGatewayEventKind(event.event);
+//   const baseSummary = `seq=${event.seq ?? '-'} stateVersion=${safeJsonStringify(event.stateVersion ?? null)}`;
+//   let summary = baseSummary;
+//   let role: string | null = null;
+//   let messageText: string | null = null;
+//   let thinkingText: string | null = null;
+//   let streamText: string | null = null;
+//   let toolText: string | null = null;
 
-  if (eventKind === "runtime-chat") {
-    const payload = event.payload as ChatEventPayload | undefined;
-    if (payload) {
-      role =
-        typeof resolveMessageRole(payload.message) === "string"
-          ? String(resolveMessageRole(payload.message))
-          : null;
-      const text = extractText(payload.message);
-      const thinking = extractThinking(payload.message ?? payload);
-      const toolLines = extractToolLines(payload.message ?? payload);
-      summary = `chat session=${payload.sessionKey || "-"} run=${payload.runId || "-"} state=${payload.state} role=${String(role ?? "-")} stopReason=${payload.stopReason ?? "-"} | ${baseSummary}`;
-      if (text) {
-        messageText = stripUiMetadata(text).trim() || text.trim();
-      }
-      if (thinking) {
-        thinkingText = thinking.trim();
-      }
-      if (toolLines.length > 0) {
-        toolText = toolLines.join(" | ");
-      }
-    }
-  } else if (eventKind === "runtime-agent") {
-    const payload = event.payload as AgentEventPayload | undefined;
-    if (payload) {
-      const data =
-        payload.data && typeof payload.data === "object"
-          ? (payload.data as Record<string, unknown>)
-          : null;
-      const phase = typeof data?.phase === "string" ? data.phase : "-";
-      const text =
-        typeof data?.text === "string"
-          ? data.text
-          : typeof data?.delta === "string"
-            ? data.delta
-            : "";
-      const extractedThinking = extractThinking(data ?? payload);
-      summary = `agent session=${payload.sessionKey || "-"} run=${payload.runId || "-"} stream=${payload.stream || "-"} phase=${phase} reasoning=${String(isReasoningRuntimeAgentStream(payload.stream ?? ""))} | ${baseSummary}`;
-      if (extractedThinking) {
-        thinkingText = extractedThinking.trim();
-      } else if (text.trim()) {
-        streamText = text.trim();
-      }
-    }
-  }
+//   if (eventKind === 'runtime-chat') {
+//     const payload = event.payload as ChatEventPayload | undefined;
+//     if (payload) {
+//       role =
+//         typeof resolveMessageRole(payload.message) === 'string'
+//           ? String(resolveMessageRole(payload.message))
+//           : null;
+//       const text = extractText(payload.message);
+//       const thinking = extractThinking(payload.message ?? payload);
+//       const toolLines = extractToolLines(payload.message ?? payload);
+//       summary = `chat session=${payload.sessionKey || '-'} run=${payload.runId || '-'} state=${payload.state} role=${String(role ?? '-')} stopReason=${payload.stopReason ?? '-'} | ${baseSummary}`;
+//       if (text) {
+//         messageText = stripUiMetadata(text).trim() || text.trim();
+//       }
+//       if (thinking) {
+//         thinkingText = thinking.trim();
+//       }
+//       if (toolLines.length > 0) {
+//         toolText = toolLines.join(' | ');
+//       }
+//     }
+//   } else if (eventKind === 'runtime-agent') {
+//     const payload = event.payload as AgentEventPayload | undefined;
+//     if (payload) {
+//       const data =
+//         payload.data && typeof payload.data === 'object'
+//           ? (payload.data as Record<string, unknown>)
+//           : null;
+//       const phase = typeof data?.phase === 'string' ? data.phase : '-';
+//       const text =
+//         typeof data?.text === 'string'
+//           ? data.text
+//           : typeof data?.delta === 'string'
+//             ? data.delta
+//             : '';
+//       const extractedThinking = extractThinking(data ?? payload);
+//       summary = `agent session=${payload.sessionKey || '-'} run=${payload.runId || '-'} stream=${payload.stream || '-'} phase=${phase} reasoning=${String(isReasoningRuntimeAgentStream(payload.stream ?? ''))} | ${baseSummary}`;
+//       if (extractedThinking) {
+//         thinkingText = extractedThinking.trim();
+//       } else if (text.trim()) {
+//         streamText = text.trim();
+//       }
+//     }
+//   }
 
-  return createOpenClawLogEntry({
-    eventName: event.event,
-    eventKind,
-    summary,
-    role,
-    messageText,
-    thinkingText,
-    streamText,
-    toolText,
-    payload: event.payload ?? null,
-  });
-};
+//   return createOpenClawLogEntry({
+//     eventName: event.event,
+//     eventKind,
+//     summary,
+//     role,
+//     messageText,
+//     thinkingText,
+//     streamText,
+//     toolText,
+//     payload: event.payload ?? null,
+//   });
+// };
 
 const resolveLatestUserTextFromPreview = (
   previewResult: SummaryPreviewSnapshot | null | undefined,
@@ -359,8 +362,8 @@ const resolveLatestUserTextFromPreview = (
   for (let index = preview.items.length - 1; index >= 0; index -= 1) {
     const item = preview.items[index];
     if (!item) continue;
-    if (item.role === "assistant") continue;
-    if (item.role === "user") {
+    if (item.role === 'assistant') continue;
+    if (item.role === 'user') {
       const text = item.text.trim();
       if (text) return text;
     }
@@ -377,21 +380,21 @@ const getDeterministicItem = (id: string) => {
 };
 
 const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
-  if (agent.status === "error") {
+  if (agent.status === 'error') {
     return {
       id: agent.agentId,
-      name: agent.name || "Unknown",
-      status: "error",
+      name: agent.name || 'Unknown',
+      status: 'error',
       color: stringToColor(agent.agentId),
       item: getDeterministicItem(agent.agentId),
       avatarProfile: agent.avatarProfile ?? null,
     };
   }
-  const isWorking = agent.status === "running" || Boolean(agent.runId);
+  const isWorking = agent.status === 'running' || Boolean(agent.runId);
   return {
     id: agent.agentId,
-    name: agent.name || "Unknown",
-    status: isWorking ? "working" : "idle",
+    name: agent.name || 'Unknown',
+    status: isWorking ? 'working' : 'idle',
     color: stringToColor(agent.agentId),
     item: getDeterministicItem(agent.agentId),
     avatarProfile: agent.avatarProfile ?? null,
@@ -437,7 +440,7 @@ type HistoryInferenceResult = {
 type OfficeDebugRow = {
   agentId: string;
   name: string;
-  storeStatus: AgentState["status"];
+  storeStatus: AgentState['status'];
   runId: string | null;
   inferredRunning: boolean;
   lastRole: string;
@@ -454,17 +457,17 @@ type OfficeFeedEvent = {
   name: string;
   text: string;
   ts: number;
-  kind?: "status" | "reply";
+  kind?: 'status' | 'reply';
 };
 
 const normalizeOfficeFeedText = (
   value: string | null | undefined,
   maxChars?: number,
 ): string => {
-  const normalized = (value ?? "").replace(/\s+/g, " ").trim();
-  if (!normalized) return "";
+  const normalized = (value ?? '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
   if (
-    typeof maxChars !== "number" ||
+    typeof maxChars !== 'number' ||
     !Number.isFinite(maxChars) ||
     maxChars <= 0
   ) {
@@ -479,28 +482,28 @@ const resolveHistoryInference = (
 ): HistoryInferenceResult => {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const entry = messages[index];
-    const role = typeof entry.role === "string" ? entry.role : "";
-    if (role === "system" || role === "tool" || role === "toolResult") continue;
+    const role = typeof entry.role === 'string' ? entry.role : '';
+    if (role === 'system' || role === 'tool' || role === 'toolResult') continue;
     const text =
-      typeof entry.text === "string"
+      typeof entry.text === 'string'
         ? entry.text.trim()
-        : typeof entry.content === "string"
+        : typeof entry.content === 'string'
           ? entry.content.trim()
-          : "";
-    if (role === "assistant") {
+          : '';
+    if (role === 'assistant') {
       return {
         inferredRunning: false,
-        lastRole: "assistant",
+        lastRole: 'assistant',
         lastText: text.slice(0, 120),
         messageCount: messages.length,
       };
     }
-    if (role === "user") {
-      const rawText = typeof entry.text === "string" ? entry.text : text;
+    if (role === 'user') {
+      const rawText = typeof entry.text === 'string' ? entry.text : text;
       if (rawText && isHeartbeatPrompt(rawText)) continue;
       return {
         inferredRunning: true,
-        lastRole: "user",
+        lastRole: 'user',
         lastText: rawText.slice(0, 120),
         messageCount: messages.length,
       };
@@ -508,141 +511,141 @@ const resolveHistoryInference = (
   }
   return {
     inferredRunning: false,
-    lastRole: "none",
-    lastText: "",
+    lastRole: 'none',
+    lastText: '',
     messageCount: messages.length,
   };
 };
 
-const inferRunningFromAgentSessions = async (params: {
-  client: {
-    call: <T = unknown>(method: string, args: unknown) => Promise<T>;
-  };
-  agentId: string;
-}): Promise<{
-  inferredRunning: boolean;
-  sessionKey: string;
-  lastRole: string;
-  lastText: string;
-  messageCount: number;
-  latestSessionUpdatedAtMs: number;
-  inspectedSessions: string[];
-  inferenceSource: string;
-}> => {
-  const sessionsResult = await params.client.call<SessionsListResult>(
-    "sessions.list",
-    {
-      agentId: params.agentId,
-      includeGlobal: false,
-      includeUnknown: true,
-      limit: 8,
-    },
-  );
-  const sessions = (
-    Array.isArray(sessionsResult.sessions) ? sessionsResult.sessions : []
-  )
-    .filter(
-      (entry) => typeof entry.key === "string" && entry.key.trim().length > 0,
-    )
-    .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
-    .slice(0, 4);
-  const latestSessionUpdatedAtMs =
-    typeof sessions[0]?.updatedAt === "number" &&
-    Number.isFinite(sessions[0].updatedAt)
-      ? sessions[0].updatedAt
-      : 0;
-  const inspectedSessions = sessions.map((entry) => {
-    const key = entry.key?.trim() ?? "";
-    const label = entry.origin?.label?.trim() ?? "";
-    const updatedAt =
-      typeof entry.updatedAt === "number" && Number.isFinite(entry.updatedAt)
-        ? new Date(entry.updatedAt).toISOString()
-        : "n/a";
-    const base = label ? `${key} [${label}]` : key;
-    return `${base} @${updatedAt}`;
-  });
-  const sessionKeys = sessions
-    .map((entry) => entry.key?.trim() ?? "")
-    .filter((key) => key.length > 0);
+// const inferRunningFromAgentSessions = async (params: {
+//   client: {
+//     call: <T = unknown>(method: string, args: unknown) => Promise<T>;
+//   };
+//   agentId: string;
+// }): Promise<{
+//   inferredRunning: boolean;
+//   sessionKey: string;
+//   lastRole: string;
+//   lastText: string;
+//   messageCount: number;
+//   latestSessionUpdatedAtMs: number;
+//   inspectedSessions: string[];
+//   inferenceSource: string;
+// }> => {
+//   const sessionsResult = await params.client.call<SessionsListResult>(
+//     'sessions.list',
+//     {
+//       agentId: params.agentId,
+//       includeGlobal: false,
+//       includeUnknown: true,
+//       limit: 8,
+//     },
+//   );
+//   const sessions = (
+//     Array.isArray(sessionsResult.sessions) ? sessionsResult.sessions : []
+//   )
+//     .filter(
+//       (entry) => typeof entry.key === 'string' && entry.key.trim().length > 0,
+//     )
+//     .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
+//     .slice(0, 4);
+//   const latestSessionUpdatedAtMs =
+//     typeof sessions[0]?.updatedAt === 'number' &&
+//     Number.isFinite(sessions[0].updatedAt)
+//       ? sessions[0].updatedAt
+//       : 0;
+//   const inspectedSessions = sessions.map((entry) => {
+//     const key = entry.key?.trim() ?? '';
+//     const label = entry.origin?.label?.trim() ?? '';
+//     const updatedAt =
+//       typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
+//         ? new Date(entry.updatedAt).toISOString()
+//         : 'n/a';
+//     const base = label ? `${key} [${label}]` : key;
+//     return `${base} @${updatedAt}`;
+//   });
+//   const sessionKeys = sessions
+//     .map((entry) => entry.key?.trim() ?? '')
+//     .filter((key) => key.length > 0);
 
-  if (sessionKeys.length > 0) {
-    const previewResult = await params.client.call<SessionsPreviewResult>(
-      "sessions.preview",
-      {
-        keys: sessionKeys,
-        limit: 8,
-        maxChars: 240,
-      },
-    );
-    const previews = Array.isArray(previewResult.previews)
-      ? previewResult.previews
-      : [];
-    for (const preview of previews) {
-      const key = typeof preview.key === "string" ? preview.key.trim() : "";
-      const items = Array.isArray(preview.items) ? preview.items : [];
-      for (let index = items.length - 1; index >= 0; index -= 1) {
-        const item = items[index];
-        if (!item) continue;
-        const role = typeof item.role === "string" ? item.role : "";
-        const text = typeof item.text === "string" ? item.text.trim() : "";
-        if (role === "system" || role === "tool" || role === "toolResult") {
-          continue;
-        }
-        if (role === "assistant") break;
-        if (role === "user") {
-          if (text && isHeartbeatPrompt(text)) continue;
-          return {
-            inferredRunning: true,
-            sessionKey: key,
-            lastRole: "user",
-            lastText: text.slice(0, 120),
-            messageCount: items.length,
-            latestSessionUpdatedAtMs,
-            inspectedSessions,
-            inferenceSource: "sessions.preview.user-tail",
-          };
-        }
-      }
-    }
-  }
+//   if (sessionKeys.length > 0) {
+//     const previewResult = await params.client.call<SessionsPreviewResult>(
+//       'sessions.preview',
+//       {
+//         keys: sessionKeys,
+//         limit: 8,
+//         maxChars: 240,
+//       },
+//     );
+//     const previews = Array.isArray(previewResult.previews)
+//       ? previewResult.previews
+//       : [];
+//     for (const preview of previews) {
+//       const key = typeof preview.key === 'string' ? preview.key.trim() : '';
+//       const items = Array.isArray(preview.items) ? preview.items : [];
+//       for (let index = items.length - 1; index >= 0; index -= 1) {
+//         const item = items[index];
+//         if (!item) continue;
+//         const role = typeof item.role === 'string' ? item.role : '';
+//         const text = typeof item.text === 'string' ? item.text.trim() : '';
+//         if (role === 'system' || role === 'tool' || role === 'toolResult') {
+//           continue;
+//         }
+//         if (role === 'assistant') break;
+//         if (role === 'user') {
+//           if (text && isHeartbeatPrompt(text)) continue;
+//           return {
+//             inferredRunning: true,
+//             sessionKey: key,
+//             lastRole: 'user',
+//             lastText: text.slice(0, 120),
+//             messageCount: items.length,
+//             latestSessionUpdatedAtMs,
+//             inspectedSessions,
+//             inferenceSource: 'sessions.preview.user-tail',
+//           };
+//         }
+//       }
+//     }
+//   }
 
-  for (const session of sessions) {
-    const key = session.key?.trim() ?? "";
-    if (!key) continue;
-    const history = await params.client.call<ChatHistoryResult>(
-      "chat.history",
-      {
-        sessionKey: key,
-        limit: 24,
-      },
-    );
-    const messages = Array.isArray(history.messages) ? history.messages : [];
-    const inference = resolveHistoryInference(messages);
-    if (inference.inferredRunning) {
-      return {
-        inferredRunning: true,
-        sessionKey: key,
-        lastRole: inference.lastRole,
-        lastText: inference.lastText,
-        messageCount: inference.messageCount,
-        latestSessionUpdatedAtMs,
-        inspectedSessions,
-        inferenceSource: "chat.history.user-tail",
-      };
-    }
-  }
+//   for (const session of sessions) {
+//     const key = session.key?.trim() ?? '';
+//     if (!key) continue;
+//     const history = await params.client.call<ChatHistoryResult>(
+//       'chat.history',
+//       {
+//         sessionKey: key,
+//         limit: 24,
+//       },
+//     );
+//     const messages = Array.isArray(history.messages) ? history.messages : [];
+//     const inference = resolveHistoryInference(messages);
+//     if (inference.inferredRunning) {
+//       return {
+//         inferredRunning: true,
+//         sessionKey: key,
+//         lastRole: inference.lastRole,
+//         lastText: inference.lastText,
+//         messageCount: inference.messageCount,
+//         latestSessionUpdatedAtMs,
+//         inspectedSessions,
+//         inferenceSource: 'chat.history.user-tail',
+//       };
+//     }
+//   }
 
-  return {
-    inferredRunning: false,
-    sessionKey: "",
-    lastRole: "assistant",
-    lastText: "",
-    messageCount: 0,
-    latestSessionUpdatedAtMs,
-    inspectedSessions,
-    inferenceSource: "none",
-  };
-};
+//   return {
+//     inferredRunning: false,
+//     sessionKey: '',
+//     lastRole: 'assistant',
+//     lastText: '',
+//     messageCount: 0,
+//     latestSessionUpdatedAtMs,
+//     inspectedSessions,
+//     inferenceSource: 'none',
+//   };
+// };
 
 type OfficeScreenProps = {
   showOpenClawConsole?: boolean;
@@ -651,23 +654,31 @@ type OfficeScreenProps = {
 export function OfficeScreen({
   showOpenClawConsole = true,
 }: OfficeScreenProps) {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
-  const debugEnabled = searchParams.get("officeDebug") === "1";
+  const debugEnabled = searchParams.get('officeDebug') === '1';
+
+  useEffect(() => {
+    setZhinaoAuthParams({
+      userId: searchParams.get('userId'),
+      authCode: searchParams.get('X-Auth-Code'),
+    });
+  }, [searchParams]);
   const [settingsCoordinator] = useState(() =>
     createStudioSettingsCoordinator(),
   );
   const [client] = useState(() => new GatewayClient());
-  const [_gatewayStatus] = useState<GatewayStatus>("disconnected");
-  const connectPromptReady = false;
-  const shouldPromptForConnect = false;
-  const [gatewayUrl, setGatewayUrl] = useState("");
-  const [token, setToken] = useState("");
-  const localGatewayDefaults = null;
+  const [_gatewayStatus] = useState<GatewayStatus>('disconnected');
+  // const connectPromptReady = false;
+  // const shouldPromptForConnect = false;
+  const [gatewayUrl, setGatewayUrl] = useState('');
+  const [token, setToken] = useState('');
+  // const localGatewayDefaults = null;
   const gatewayError: string | null = null;
   const connect = useCallback(async () => {}, []);
   const disconnect = useCallback(() => {}, []);
-  const useLocalGatewayDefaults = useCallback(() => {}, []);
-  const status = "connected" as const;
+  // const useLocalGatewayDefaults = useCallback(() => {}, []);
+  const status = 'connected' as const;
   const { state, dispatch, hydrateAgents, setError, setLoading } =
     useAgentStore();
 
@@ -678,7 +689,8 @@ export function OfficeScreen({
     setError,
   });
   const agentsLoaded = zhinaoAgents.agentsLoaded;
-  const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] = useState(false);
+  // const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] =
+  //   useState(false);
   const [clockTick, setClockTick] = useState(0);
   const [debugRows, setDebugRows] = useState<OfficeDebugRow[]>([]);
   const [feedEvents, setFeedEvents] = useState<OfficeFeedEvent[]>([]);
@@ -705,10 +717,10 @@ export function OfficeScreen({
   >([]);
   const [openClawConsoleCollapsed, setOpenClawConsoleCollapsed] =
     useState(true);
-  const [openClawConsoleSearch, setOpenClawConsoleSearch] = useState("");
+  const [openClawConsoleSearch, setOpenClawConsoleSearch] = useState('');
   const [openClawConsoleCopyStatus, setOpenClawConsoleCopyStatus] = useState<
-    "idle" | "copied" | "error"
-  >("idle");
+    'idle' | 'copied' | 'error'
+  >('idle');
   const [officeTriggerState, setOfficeTriggerState] = useState(() =>
     createOfficeAnimationTriggerState(),
   );
@@ -746,15 +758,15 @@ export function OfficeScreen({
   const [selectedChatAgentId, setSelectedChatAgentId] = useState<string | null>(
     null,
   );
-  const [agentEditorAgentId, setAgentEditorAgentId] = useState<string | null>(null);
+  const [agentEditorAgentId, setAgentEditorAgentId] = useState<string | null>(
+    null,
+  );
   const [agentEditorInitialSection, setAgentEditorInitialSection] =
-    useState<AgentEditorSection>("avatar");
-  const [preparedPhoneCallsByAgentId, setPreparedPhoneCallsByAgentId] = useState<
-    Record<string, PreparedPhoneCallEntry>
-  >({});
-  const [preparedTextMessagesByAgentId, setPreparedTextMessagesByAgentId] = useState<
-    Record<string, PreparedTextMessageEntry>
-  >({});
+    useState<AgentEditorSection>('avatar');
+  const [preparedPhoneCallsByAgentId, setPreparedPhoneCallsByAgentId] =
+    useState<Record<string, PreparedPhoneCallEntry>>({});
+  const [preparedTextMessagesByAgentId, setPreparedTextMessagesByAgentId] =
+    useState<Record<string, PreparedTextMessageEntry>>({});
   const promptedPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const preparedPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const spokenPhoneCallKeysRef = useRef<Set<string>>(new Set());
@@ -763,10 +775,10 @@ export function OfficeScreen({
   const [deskAssignmentByDeskUid, setDeskAssignmentByDeskUid] = useState<
     Record<string, string>
   >({});
-  const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
+  // const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] =
-    useState<HQSidebarTab>("inbox");
+    useState<HQSidebarTab>('inbox');
   const router = useRouter();
   const { showOnboarding, completeOnboarding, resetOnboarding } =
     useOnboardingState();
@@ -815,7 +827,7 @@ export function OfficeScreen({
   const handleAvatarProfileSave = useCallback(
     (agentId: string, profile: AgentAvatarProfile) => {
       dispatch({
-        type: "updateAgent",
+        type: 'updateAgent',
         agentId,
         patch: { avatarProfile: profile, avatarSeed: profile.seed },
       });
@@ -829,11 +841,11 @@ export function OfficeScreen({
     [dispatch, gatewayUrl, settingsCoordinator],
   );
   const openAgentEditor = useCallback(
-    (agentId: string, initialSection: AgentEditorSection = "avatar") => {
+    (agentId: string, initialSection: AgentEditorSection = 'avatar') => {
       setAgentEditorAgentId(agentId);
       setAgentEditorInitialSection(initialSection);
       setSelectedChatAgentId(agentId);
-      dispatch({ type: "selectAgent", agentId });
+      dispatch({ type: 'selectAgent', agentId });
     },
     [dispatch],
   );
@@ -916,20 +928,21 @@ export function OfficeScreen({
     };
   }, []);
 
-  useEffect(() => {
-    if (_gatewayStatus === "connecting") {
-      setDidAttemptGatewayConnect(true);
-    }
-  }, [_gatewayStatus]);
+  // useEffect(() => {
+  //   if (_gatewayStatus === 'connecting') {
+  //     setDidAttemptGatewayConnect(true);
+  //   }
+  // }, [_gatewayStatus]);
 
-  useEffect(() => {
-    if (gatewayError) {
-      setDidAttemptGatewayConnect(true);
-    }
-  }, [gatewayError]);
+  // useEffect(() => {
+  //   if (gatewayError) {
+  //     setDidAttemptGatewayConnect(true);
+  //   }
+  // }, [gatewayError]);
 
   const loadStudioSettings = useCallback(
-    (options?: StudioSettingsLoadOptions) => settingsCoordinator.loadSettings(options),
+    (options?: StudioSettingsLoadOptions) =>
+      settingsCoordinator.loadSettings(options),
     [settingsCoordinator],
   );
 
@@ -957,29 +970,32 @@ export function OfficeScreen({
     };
   }, [gatewayUrl, loadStudioSettings]);
 
-  const loadAgents = useCallback(async (_options?: {
-    forceSettings?: boolean;
-    minIntervalMs?: number;
-    onlyWhenIdleForMs?: number;
-    settingsMaxAgeMs?: number;
-    silent?: boolean;
-  }) => {
-    // Agent loading is now handled by useZhinaoAgents polling hook — this is a no-op stub.
-  }, []);
+  const loadAgents = useCallback(
+    async (_options?: {
+      forceSettings?: boolean;
+      minIntervalMs?: number;
+      onlyWhenIdleForMs?: number;
+      settingsMaxAgeMs?: number;
+      silent?: boolean;
+    }) => {
+      // Agent loading is now handled by useZhinaoAgents polling hook — this is a no-op stub.
+    },
+    [],
+  );
 
   const requestAgentHistoryRefresh = useCallback(
     async (params: {
       agentId: string;
-      reason: "chat-final-no-trace" | "run-start-no-chat";
+      reason: 'chat-final-no-trace' | 'run-start-no-chat';
       sessionKey?: string;
     }) => {
-      if (_gatewayStatus !== "connected") return;
-      const requestedSessionKey = params.sessionKey?.trim() ?? "";
+      if (_gatewayStatus !== 'connected') return;
+      const requestedSessionKey = params.sessionKey?.trim() ?? '';
       if (requestedSessionKey) {
         try {
           const history = await client.call<{
             messages?: Record<string, unknown>[];
-          }>("chat.history", {
+          }>('chat.history', {
             sessionKey: requestedSessionKey,
             limit: RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT,
           });
@@ -987,10 +1003,10 @@ export function OfficeScreen({
             ? history.messages
             : [];
           const derived = buildHistoryLines(messages);
-          let lastUser = derived.lastUser?.trim() ?? "";
+          let lastUser = derived.lastUser?.trim() ?? '';
           if (!lastUser) {
             const previewResult = await client.call<SummaryPreviewSnapshot>(
-              "sessions.preview",
+              'sessions.preview',
               {
                 keys: [requestedSessionKey],
                 limit: 12,
@@ -1001,7 +1017,7 @@ export function OfficeScreen({
               resolveLatestUserTextFromPreview(
                 previewResult,
                 requestedSessionKey,
-              ) ?? "";
+              ) ?? '';
           }
           const targetAgentId =
             parseAgentIdFromSessionKey(requestedSessionKey) ?? params.agentId;
@@ -1012,15 +1028,15 @@ export function OfficeScreen({
           if (derived.lastAssistant) {
             patch.latestPreview = derived.lastAssistant;
           }
-          if (typeof derived.lastAssistantAt === "number") {
+          if (typeof derived.lastAssistantAt === 'number') {
             patch.lastAssistantMessageAt = derived.lastAssistantAt;
           }
-          if (typeof derived.lastUserAt === "number") {
+          if (typeof derived.lastUserAt === 'number') {
             patch.lastActivityAt = derived.lastUserAt;
           }
           if (Object.keys(patch).length > 0) {
             dispatch({
-              type: "updateAgent",
+              type: 'updateAgent',
               agentId: targetAgentId,
               patch,
             });
@@ -1031,8 +1047,8 @@ export function OfficeScreen({
             const next = [
               ...previous,
               createOpenClawLogEntry({
-                eventName: "history-refresh",
-                eventKind: "derived",
+                eventName: 'history-refresh',
+                eventKind: 'derived',
                 summary: `session=${requestedSessionKey} reason=${params.reason} lastUser=${formatOpenClawValue(lastUser)} lastAssistant=${formatOpenClawValue(derived.lastAssistant)}`,
                 messageText: lastUser || null,
                 streamText: derived.lastAssistant ?? null,
@@ -1049,7 +1065,7 @@ export function OfficeScreen({
           });
           if (debugEnabled) {
             console.info(
-              "[office-debug] Refreshed transport session history.",
+              '[office-debug] Refreshed transport session history.',
               {
                 agentId: targetAgentId,
                 requestedSessionKey,
@@ -1063,8 +1079,8 @@ export function OfficeScreen({
             const next = [
               ...previous,
               createOpenClawLogEntry({
-                eventName: "history-refresh",
-                eventKind: "error",
+                eventName: 'history-refresh',
+                eventKind: 'error',
                 summary: `session=${requestedSessionKey} reason=${params.reason} refresh failed`,
                 payload: {
                   sessionKey: requestedSessionKey,
@@ -1077,7 +1093,7 @@ export function OfficeScreen({
           });
           if (!isGatewayDisconnectLikeError(error)) {
             console.error(
-              "Failed to refresh transport session history.",
+              'Failed to refresh transport session history.',
               error,
             );
           }
@@ -1105,7 +1121,7 @@ export function OfficeScreen({
         logError: (message, error) => console.error(message, error),
       });
       if (debugEnabled) {
-        console.info("[office-debug] Requested agent history refresh.", {
+        console.info('[office-debug] Requested agent history refresh.', {
           agentId: params.agentId,
           reason: params.reason,
         });
@@ -1114,67 +1130,68 @@ export function OfficeScreen({
     [client, debugEnabled, dispatch, _gatewayStatus],
   );
 
-  const refreshRecentTransportSessionHistory = useCallback(
-    (event: EventFrame) => {
-      if (event.event !== "health") return;
-      const payload =
-        event.payload as
-          | {
-              agents?: Array<{
-                agentId?: unknown;
-                sessions?: {
-                  recent?: Array<{ key?: unknown; updatedAt?: unknown }>;
-                };
-              }>;
-            }
-          | undefined;
-      const gatewayAgents = Array.isArray(payload?.agents) ? payload.agents : [];
-      if (gatewayAgents.length === 0) return;
-      for (const gatewayAgent of gatewayAgents) {
-        const agentId =
-          typeof gatewayAgent?.agentId === "string"
-            ? gatewayAgent.agentId.trim()
-            : "";
-        if (!agentId) continue;
-        const localAgent = stateRef.current.agents.find(
-          (agent) => agent.agentId === agentId,
-        );
-        if (!localAgent?.sessionKey) continue;
-        const recentSessions = Array.isArray(gatewayAgent.sessions?.recent)
-          ? gatewayAgent.sessions.recent
-          : [];
-        const latestTransportSession = recentSessions.find((entry) => {
-          const sessionKey =
-            typeof entry?.key === "string" ? entry.key.trim() : "";
-          if (!sessionKey) return false;
-          if (isSameSessionKey(sessionKey, localAgent.sessionKey)) return false;
-          return parseAgentIdFromSessionKey(sessionKey) === agentId;
-        });
-        if (!latestTransportSession) continue;
-        const sessionKey =
-          typeof latestTransportSession.key === "string"
-            ? latestTransportSession.key.trim()
-            : "";
-        if (!sessionKey) continue;
-        const updatedAt =
-          typeof latestTransportSession.updatedAt === "number" &&
-          Number.isFinite(latestTransportSession.updatedAt)
-            ? latestTransportSession.updatedAt
-            : 0;
-        const refreshKey = `${sessionKey}:${updatedAt}`;
-        if (lastTransportHistoryRefreshKeyRef.current[agentId] === refreshKey) {
-          continue;
-        }
-        lastTransportHistoryRefreshKeyRef.current[agentId] = refreshKey;
-        void requestAgentHistoryRefresh({
-          agentId,
-          reason: "run-start-no-chat",
-          sessionKey,
-        });
-      }
-    },
-    [requestAgentHistoryRefresh],
-  );
+  // const refreshRecentTransportSessionHistory = useCallback(
+  //   (event: EventFrame) => {
+  //     if (event.event !== 'health') return;
+  //     const payload = event.payload as
+  //       | {
+  //           agents?: Array<{
+  //             agentId?: unknown;
+  //             sessions?: {
+  //               recent?: Array<{ key?: unknown; updatedAt?: unknown }>;
+  //             };
+  //           }>;
+  //         }
+  //       | undefined;
+  //     const gatewayAgents = Array.isArray(payload?.agents)
+  //       ? payload.agents
+  //       : [];
+  //     if (gatewayAgents.length === 0) return;
+  //     for (const gatewayAgent of gatewayAgents) {
+  //       const agentId =
+  //         typeof gatewayAgent?.agentId === 'string'
+  //           ? gatewayAgent.agentId.trim()
+  //           : '';
+  //       if (!agentId) continue;
+  //       const localAgent = stateRef.current.agents.find(
+  //         (agent) => agent.agentId === agentId,
+  //       );
+  //       if (!localAgent?.sessionKey) continue;
+  //       const recentSessions = Array.isArray(gatewayAgent.sessions?.recent)
+  //         ? gatewayAgent.sessions.recent
+  //         : [];
+  //       const latestTransportSession = recentSessions.find((entry) => {
+  //         const sessionKey =
+  //           typeof entry?.key === 'string' ? entry.key.trim() : '';
+  //         if (!sessionKey) return false;
+  //         if (isSameSessionKey(sessionKey, localAgent.sessionKey)) return false;
+  //         return parseAgentIdFromSessionKey(sessionKey) === agentId;
+  //       });
+  //       if (!latestTransportSession) continue;
+  //       const sessionKey =
+  //         typeof latestTransportSession.key === 'string'
+  //           ? latestTransportSession.key.trim()
+  //           : '';
+  //       if (!sessionKey) continue;
+  //       const updatedAt =
+  //         typeof latestTransportSession.updatedAt === 'number' &&
+  //         Number.isFinite(latestTransportSession.updatedAt)
+  //           ? latestTransportSession.updatedAt
+  //           : 0;
+  //       const refreshKey = `${sessionKey}:${updatedAt}`;
+  //       if (lastTransportHistoryRefreshKeyRef.current[agentId] === refreshKey) {
+  //         continue;
+  //       }
+  //       lastTransportHistoryRefreshKeyRef.current[agentId] = refreshKey;
+  //       void requestAgentHistoryRefresh({
+  //         agentId,
+  //         reason: 'run-start-no-chat',
+  //         sessionKey,
+  //       });
+  //     }
+  //   },
+  //   [requestAgentHistoryRefresh],
+  // );
 
   /* --- original gateway load/disconnect effects disabled — data comes from useZhinaoAgents --- */
 
@@ -1200,10 +1217,10 @@ export function OfficeScreen({
         [
           {
             id: agent.agentId,
-            name: agent.name || "Agent",
+            name: agent.name || 'Agent',
             text: previewText,
             ts: previewTs,
-            kind: "reply" as const,
+            kind: 'reply' as const,
           },
           ...prev,
         ].slice(0, 6),
@@ -1225,7 +1242,7 @@ export function OfficeScreen({
     const { bubbleTexts, activities } = zhinaoAgents;
     for (const activity of activities) {
       const agentId = activity.agentId;
-      const texts = activity.pops ?? bubbleTexts.get(agentId) ?? [];
+      const texts = bubbleTexts.get(agentId) ?? [];
       for (const text of texts) {
         if (!text) continue;
         const key = `${agentId}::${text}`;
@@ -1235,10 +1252,10 @@ export function OfficeScreen({
           [
             {
               id: agentId,
-              name: activity.name || "Agent",
+              name: activity.name || 'Agent',
               text,
               ts: Date.now(),
-              kind: "reply" as const,
+              kind: 'reply' as const,
             },
             ...prev,
           ].slice(0, 6),
@@ -1308,36 +1325,50 @@ export function OfficeScreen({
     }
   }, [chatOpen, selectedChatAgentId, state.agents]);
 
-  const chatController = useChatInteractionController({
-    client,
-    status: _gatewayStatus,
-    agents: state.agents,
-    dispatch: (action) => dispatch(action as never),
-    setError,
-    getAgents: () => stateRef.current.agents,
-    clearRunTracking: () => {},
-    clearHistoryInFlight: () => {},
-    clearSpecialUpdateMarker: () => {},
-    clearSpecialLatestUpdateInFlight: () => {},
-    setInspectSidebarNull: () => {},
-    setMobilePaneChat: () => {},
-  });
+  // const selectedChatTransportAgentId = useMemo(() => {
+  //   if (!selectedChatAgentId) return null;
+  //   const activity = zhinaoAgents.activities.find(
+  //     (entry) => entry.agentId === selectedChatAgentId,
+  //   );
+  //   return activity?.nameEn?.trim() || selectedChatAgentId;
+  // }, [selectedChatAgentId, zhinaoAgents.activities]);
 
-  const zhinaoChat = useZhinaoChatWs({
-    agentId: selectedChatAgentId,
-    open: chatOpen,
-  });
+  // const chatController = useChatInteractionController({
+  //   client,
+  //   status: _gatewayStatus,
+  //   agents: state.agents,
+  //   dispatch: (action) => dispatch(action as never),
+  //   setError,
+  //   getAgents: () => stateRef.current.agents,
+  //   clearRunTracking: () => {},
+  //   clearHistoryInFlight: () => {},
+  //   clearSpecialUpdateMarker: () => {},
+  //   clearSpecialLatestUpdateInFlight: () => {},
+  //   setInspectSidebarNull: () => {},
+  //   setMobilePaneChat: () => {},
+  // });
+
+  // const zhinaoChat = useZhinaoChatWs({
+  //   agentId: selectedChatAgentId,
+  //   transportAgentId: selectedChatTransportAgentId,
+  //   open: chatOpen,
+  // });
 
   const focusedChatAgent = selectedChatAgentId
     ? (state.agents.find((agent) => agent.agentId === selectedChatAgentId) ??
       null)
     : null;
   const agentEditorAgent = agentEditorAgentId
-    ? (state.agents.find((agent) => agent.agentId === agentEditorAgentId) ?? null)
+    ? (state.agents.find((agent) => agent.agentId === agentEditorAgentId) ??
+      null)
     : null;
   const mainAgent =
     state.agents.find((agent) => agent.agentId === MAIN_AGENT_ID) ?? null;
-  const runLog = useRunLog({ client, status: _gatewayStatus, agents: state.agents });
+  const runLog = useRunLog({
+    client,
+    status: _gatewayStatus,
+    agents: state.agents,
+  });
   const standupAgentSnapshots = useMemo<StandupAgentSnapshot[]>(
     () =>
       state.agents.map((agent) => ({
@@ -1411,13 +1442,22 @@ export function OfficeScreen({
     }),
     [marketplaceGymHoldByAgentId, skillGymHoldByAgentId],
   );
+  const officeAgentIdsKey = useMemo(
+    () => buildOfficeAgentIdsKey(state.agents),
+    [state.agents],
+  );
+  const officeAgentIdsRef = useRef<string[]>([]);
+  const officeAgentIdsKeyRef = useRef('');
+  if (officeAgentIdsKeyRef.current !== officeAgentIdsKey) {
+    officeAgentIdsKeyRef.current = officeAgentIdsKey;
+    officeAgentIdsRef.current = state.agents.map((agent) => agent.agentId);
+  }
 
   useEffect(() => {
     const now = Date.now();
     setGymCooldownUntilByAgentId((previous) => {
       const next: Record<string, number> = {};
-      for (const agent of state.agents) {
-        const agentId = agent.agentId;
+      for (const agentId of officeAgentIdsRef.current) {
         const immediateHeld = Boolean(immediateGymHoldByAgentId[agentId]);
         const wasImmediateHeld =
           prevImmediateGymHoldRef.current[agentId] ?? false;
@@ -1447,12 +1487,12 @@ export function OfficeScreen({
       return next;
     });
     prevImmediateGymHoldRef.current = Object.fromEntries(
-      state.agents.map((agent) => [
-        agent.agentId,
-        Boolean(immediateGymHoldByAgentId[agent.agentId]),
+      officeAgentIdsRef.current.map((agentId) => [
+        agentId,
+        Boolean(immediateGymHoldByAgentId[agentId]),
       ]),
     );
-  }, [immediateGymHoldByAgentId, state.agents]);
+  }, [immediateGymHoldByAgentId, officeAgentIdsKey]);
 
   const activeGithubReviewAgentId = useMemo(
     () =>
@@ -1473,7 +1513,7 @@ export function OfficeScreen({
   useEffect(() => {
     if (!activeGithubReviewAgentId) return;
     setSelectedChatAgentId(activeGithubReviewAgentId);
-    dispatch({ type: "selectAgent", agentId: activeGithubReviewAgentId });
+    dispatch({ type: 'selectAgent', agentId: activeGithubReviewAgentId });
   }, [activeGithubReviewAgentId, dispatch]);
 
   useEffect(() => {
@@ -1483,7 +1523,7 @@ export function OfficeScreen({
   useEffect(() => {
     if (!activeQaTestingAgentId) return;
     setSelectedChatAgentId(activeQaTestingAgentId);
-    dispatch({ type: "selectAgent", agentId: activeQaTestingAgentId });
+    dispatch({ type: 'selectAgent', agentId: activeQaTestingAgentId });
   }, [activeQaTestingAgentId, dispatch]);
 
   useEffect(() => {
@@ -1491,21 +1531,29 @@ export function OfficeScreen({
       Object.values(phoneCallByAgentId).map((request) => request.key),
     );
     promptedPhoneCallKeysRef.current = new Set(
-      [...promptedPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
+      [...promptedPhoneCallKeysRef.current].filter((key) =>
+        activeKeys.has(key),
+      ),
     );
     preparedPhoneCallKeysRef.current = new Set(
-      [...preparedPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
+      [...preparedPhoneCallKeysRef.current].filter((key) =>
+        activeKeys.has(key),
+      ),
     );
     spokenPhoneCallKeysRef.current = new Set(
       [...spokenPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
     );
     setPreparedPhoneCallsByAgentId((previous) => {
       const next = Object.fromEntries(
-        Object.entries(previous).filter(([, entry]) => activeKeys.has(entry.requestKey)),
+        Object.entries(previous).filter(([, entry]) =>
+          activeKeys.has(entry.requestKey),
+        ),
       );
       if (
         Object.keys(previous).length === Object.keys(next).length &&
-        Object.keys(previous).every((agentId) => previous[agentId] === next[agentId])
+        Object.keys(previous).every(
+          (agentId) => previous[agentId] === next[agentId],
+        )
       ) {
         return previous;
       }
@@ -1517,13 +1565,16 @@ export function OfficeScreen({
     const requests = Object.entries(phoneCallByAgentId);
     if (requests.length === 0) return;
 
-    const appendPromptForAgent = (agentId: string, request: OfficePhoneCallRequest) => {
+    const appendPromptForAgent = (
+      agentId: string,
+      request: OfficePhoneCallRequest,
+    ) => {
       const agent = state.agents.find((entry) => entry.agentId === agentId);
       if (!agent) return;
       promptedPhoneCallKeysRef.current.add(request.key);
-      void fetch("/api/office/call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      void fetch('/api/office/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           callee: request.callee,
           message: null,
@@ -1540,9 +1591,9 @@ export function OfficeScreen({
           }
           setSelectedChatAgentId(agentId);
           setChatOpen(true);
-          dispatch({ type: "selectAgent", agentId });
+          dispatch({ type: 'selectAgent', agentId });
           dispatch({
-            type: "appendOutput",
+            type: 'appendOutput',
             agentId,
             line: buildPhoneCallOutputLine(promptText),
           });
@@ -1552,11 +1603,14 @@ export function OfficeScreen({
         });
     };
 
-    const prepareScenarioForAgent = (agentId: string, request: OfficePhoneCallRequest) => {
+    const prepareScenarioForAgent = (
+      agentId: string,
+      request: OfficePhoneCallRequest,
+    ) => {
       preparedPhoneCallKeysRef.current.add(request.key);
-      void fetch("/api/office/call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      void fetch('/api/office/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           callee: request.callee,
           message: request.message,
@@ -1586,13 +1640,13 @@ export function OfficeScreen({
 
     for (const [agentId, request] of requests) {
       if (
-        request.phase === "needs_message" &&
+        request.phase === 'needs_message' &&
         !promptedPhoneCallKeysRef.current.has(request.key)
       ) {
         appendPromptForAgent(agentId, request);
       }
       if (
-        request.phase === "ready_to_call" &&
+        request.phase === 'ready_to_call' &&
         !preparedPhoneCallKeysRef.current.has(request.key)
       ) {
         prepareScenarioForAgent(agentId, request);
@@ -1606,14 +1660,23 @@ export function OfficeScreen({
         if (!phoneBoothHoldByAgentId[agent.agentId]) return false;
         const prepared = preparedPhoneCallsByAgentId[agent.agentId];
         const request = phoneCallByAgentId[agent.agentId];
-        return Boolean(prepared && request && prepared.requestKey === request.key);
+        return Boolean(
+          prepared && request && prepared.requestKey === request.key,
+        );
       })?.agentId ?? null,
-    [phoneBoothHoldByAgentId, phoneCallByAgentId, preparedPhoneCallsByAgentId, state.agents],
+    [
+      phoneBoothHoldByAgentId,
+      phoneCallByAgentId,
+      preparedPhoneCallsByAgentId,
+      state.agents,
+    ],
   );
 
   const activePhoneCallScenario = useMemo(() => {
     if (!activePhoneBoothAgentId) return null;
-    return preparedPhoneCallsByAgentId[activePhoneBoothAgentId]?.scenario ?? null;
+    return (
+      preparedPhoneCallsByAgentId[activePhoneBoothAgentId]?.scenario ?? null
+    );
   }, [activePhoneBoothAgentId, preparedPhoneCallsByAgentId]);
 
   const handlePhoneCallSpeak = useCallback(
@@ -1621,7 +1684,7 @@ export function OfficeScreen({
       if (spokenPhoneCallKeysRef.current.has(requestKey)) return;
       spokenPhoneCallKeysRef.current.add(requestKey);
       setSelectedChatAgentId(agentId);
-      dispatch({ type: "selectAgent", agentId });
+      dispatch({ type: 'selectAgent', agentId });
     },
     [dispatch],
   );
@@ -1636,15 +1699,17 @@ export function OfficeScreen({
       const request = phoneCallByAgentId[agentId];
       if (request) {
         dispatch({
-          type: "appendOutput",
+          type: 'appendOutput',
           agentId,
-          line: buildPhoneCallOutputLine(`Call with ${request.callee} finished.`),
+          line: buildPhoneCallOutputLine(
+            `Call with ${request.callee} finished.`,
+          ),
         });
       }
       setOfficeTriggerState((previous) =>
         clearOfficeAnimationTriggerHold({
           state: previous,
-          hold: "call",
+          hold: 'call',
           agentId,
         }),
       );
@@ -1657,18 +1722,26 @@ export function OfficeScreen({
       Object.values(textMessageByAgentId).map((request) => request.key),
     );
     promptedTextMessageKeysRef.current = new Set(
-      [...promptedTextMessageKeysRef.current].filter((key) => activeKeys.has(key)),
+      [...promptedTextMessageKeysRef.current].filter((key) =>
+        activeKeys.has(key),
+      ),
     );
     preparedTextMessageKeysRef.current = new Set(
-      [...preparedTextMessageKeysRef.current].filter((key) => activeKeys.has(key)),
+      [...preparedTextMessageKeysRef.current].filter((key) =>
+        activeKeys.has(key),
+      ),
     );
     setPreparedTextMessagesByAgentId((previous) => {
       const next = Object.fromEntries(
-        Object.entries(previous).filter(([, entry]) => activeKeys.has(entry.requestKey)),
+        Object.entries(previous).filter(([, entry]) =>
+          activeKeys.has(entry.requestKey),
+        ),
       );
       if (
         Object.keys(previous).length === Object.keys(next).length &&
-        Object.keys(previous).every((agentId) => previous[agentId] === next[agentId])
+        Object.keys(previous).every(
+          (agentId) => previous[agentId] === next[agentId],
+        )
       ) {
         return previous;
       }
@@ -1680,13 +1753,16 @@ export function OfficeScreen({
     const requests = Object.entries(textMessageByAgentId);
     if (requests.length === 0) return;
 
-    const appendPromptForAgent = (agentId: string, request: OfficeTextMessageRequest) => {
+    const appendPromptForAgent = (
+      agentId: string,
+      request: OfficeTextMessageRequest,
+    ) => {
       const agent = state.agents.find((entry) => entry.agentId === agentId);
       if (!agent) return;
       promptedTextMessageKeysRef.current.add(request.key);
-      void fetch("/api/office/text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      void fetch('/api/office/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipient: request.recipient,
           message: null,
@@ -1703,9 +1779,9 @@ export function OfficeScreen({
           }
           setSelectedChatAgentId(agentId);
           setChatOpen(true);
-          dispatch({ type: "selectAgent", agentId });
+          dispatch({ type: 'selectAgent', agentId });
           dispatch({
-            type: "appendOutput",
+            type: 'appendOutput',
             agentId,
             line: buildTextMessageOutputLine(promptText),
           });
@@ -1715,11 +1791,14 @@ export function OfficeScreen({
         });
     };
 
-    const prepareScenarioForAgent = (agentId: string, request: OfficeTextMessageRequest) => {
+    const prepareScenarioForAgent = (
+      agentId: string,
+      request: OfficeTextMessageRequest,
+    ) => {
       preparedTextMessageKeysRef.current.add(request.key);
-      void fetch("/api/office/text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      void fetch('/api/office/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipient: request.recipient,
           message: request.message,
@@ -1749,13 +1828,13 @@ export function OfficeScreen({
 
     for (const [agentId, request] of requests) {
       if (
-        request.phase === "needs_message" &&
+        request.phase === 'needs_message' &&
         !promptedTextMessageKeysRef.current.has(request.key)
       ) {
         appendPromptForAgent(agentId, request);
       }
       if (
-        request.phase === "ready_to_send" &&
+        request.phase === 'ready_to_send' &&
         !preparedTextMessageKeysRef.current.has(request.key)
       ) {
         prepareScenarioForAgent(agentId, request);
@@ -1769,14 +1848,23 @@ export function OfficeScreen({
         if (!smsBoothHoldByAgentId[agent.agentId]) return false;
         const prepared = preparedTextMessagesByAgentId[agent.agentId];
         const request = textMessageByAgentId[agent.agentId];
-        return Boolean(prepared && request && prepared.requestKey === request.key);
+        return Boolean(
+          prepared && request && prepared.requestKey === request.key,
+        );
       })?.agentId ?? null,
-    [preparedTextMessagesByAgentId, smsBoothHoldByAgentId, state.agents, textMessageByAgentId],
+    [
+      preparedTextMessagesByAgentId,
+      smsBoothHoldByAgentId,
+      state.agents,
+      textMessageByAgentId,
+    ],
   );
 
   const activeTextMessageScenario = useMemo(() => {
     if (!activeSmsBoothAgentId) return null;
-    return preparedTextMessagesByAgentId[activeSmsBoothAgentId]?.scenario ?? null;
+    return (
+      preparedTextMessagesByAgentId[activeSmsBoothAgentId]?.scenario ?? null
+    );
   }, [activeSmsBoothAgentId, preparedTextMessagesByAgentId]);
 
   const handleTextMessageComplete = useCallback(
@@ -1789,15 +1877,17 @@ export function OfficeScreen({
       const request = textMessageByAgentId[agentId];
       if (request) {
         dispatch({
-          type: "appendOutput",
+          type: 'appendOutput',
           agentId,
-          line: buildTextMessageOutputLine(`Message to ${request.recipient} sent.`),
+          line: buildTextMessageOutputLine(
+            `Message to ${request.recipient} sent.`,
+          ),
         });
       }
       setOfficeTriggerState((previous) =>
         clearOfficeAnimationTriggerHold({
           state: previous,
-          hold: "text",
+          hold: 'text',
           agentId,
         }),
       );
@@ -1830,7 +1920,7 @@ export function OfficeScreen({
     (agentId: string) => {
       setSelectedChatAgentId(agentId);
       setChatOpen(true);
-      dispatch({ type: "selectAgent", agentId });
+      dispatch({ type: 'selectAgent', agentId });
     },
     [dispatch],
   );
@@ -1842,11 +1932,11 @@ export function OfficeScreen({
       if (!trimmed) return false;
       if (
         standupController.meeting &&
-        standupController.meeting.phase !== "complete"
+        standupController.meeting.phase !== 'complete'
       ) {
         return false;
       }
-      await standupController.startMeeting("manual");
+      await standupController.startMeeting('manual');
       return true;
     },
     [standupController],
@@ -1857,7 +1947,7 @@ export function OfficeScreen({
     setOfficeTriggerState((previous) =>
       clearOfficeAnimationTriggerHold({
         state: previous,
-        hold: "github",
+        hold: 'github',
         agentId: githubReviewAgentId,
       }),
     );
@@ -1868,7 +1958,7 @@ export function OfficeScreen({
     setOfficeTriggerState((previous) =>
       clearOfficeAnimationTriggerHold({
         state: previous,
-        hold: "qa",
+        hold: 'qa',
         agentId: qaTestingAgentId,
       }),
     );
@@ -1885,9 +1975,9 @@ export function OfficeScreen({
         const next = [
           ...previous,
           createOpenClawLogEntry({
-            eventName: "office-intent",
-            eventKind: "derived",
-            summary: `agent=${agentId} gym=${intentSnapshot.gym?.source ?? "-"} qa=${intentSnapshot.qa ?? "-"} github=${intentSnapshot.github ?? "-"} desk=${intentSnapshot.desk ?? "-"} text=${intentSnapshot.text?.phase ?? "-"}`,
+            eventName: 'office-intent',
+            eventKind: 'derived',
+            summary: `agent=${agentId} gym=${intentSnapshot.gym?.source ?? '-'} qa=${intentSnapshot.qa ?? '-'} github=${intentSnapshot.github ?? '-'} desk=${intentSnapshot.desk ?? '-'} text=${intentSnapshot.text?.phase ?? '-'}`,
             payload: {
               agentId,
               message: trimmed,
@@ -1902,14 +1992,14 @@ export function OfficeScreen({
       const pendingTextMessage = textMessageByAgentId[agentId] ?? null;
       const hasImmediateOfficeTrigger = Boolean(
         intentSnapshot.desk ||
-          intentSnapshot.github ||
-          intentSnapshot.gym ||
-          intentSnapshot.qa ||
-          intentSnapshot.standup ||
-          intentSnapshot.text,
+        intentSnapshot.github ||
+        intentSnapshot.gym ||
+        intentSnapshot.qa ||
+        intentSnapshot.standup ||
+        intentSnapshot.text,
       );
       const isPhoneCallFollowUp =
-        pendingPhoneCall?.phase === "needs_message" &&
+        pendingPhoneCall?.phase === 'needs_message' &&
         !intentSnapshot.call &&
         !intentSnapshot.text &&
         !intentSnapshot.desk &&
@@ -1918,7 +2008,7 @@ export function OfficeScreen({
         !intentSnapshot.qa &&
         !intentSnapshot.standup;
       const isTextMessageFollowUp =
-        pendingTextMessage?.phase === "needs_message" &&
+        pendingTextMessage?.phase === 'needs_message' &&
         !intentSnapshot.call &&
         !intentSnapshot.text &&
         !intentSnapshot.desk &&
@@ -1941,14 +2031,14 @@ export function OfficeScreen({
             agents: stateRef.current.agents,
             nowMs,
             event: {
-              type: "event",
-              event: "chat",
+              type: 'event',
+              event: 'chat',
               payload: {
                 runId,
                 sessionKey,
-                state: "final",
+                state: 'final',
                 message: {
-                  role: "user",
+                  role: 'user',
                   content: trimmed,
                 },
               },
@@ -1961,25 +2051,25 @@ export function OfficeScreen({
         const nowMs = Date.now();
         const runId = randomUUID();
         dispatch({
-          type: "updateAgent",
+          type: 'updateAgent',
           agentId,
           patch: {
-            draft: "",
+            draft: '',
             lastUserMessage: trimmed,
             lastActivityAt: nowMs,
           },
         });
         dispatch({
-          type: "appendOutput",
+          type: 'appendOutput',
           agentId,
           line: `> ${trimmed}`,
           transcript: {
-            source: "local-send",
+            source: 'local-send',
             runId,
             sessionKey,
             timestampMs: nowMs,
-            role: "user",
-            kind: "user",
+            role: 'user',
+            kind: 'user',
             confirmed: true,
           },
         });
@@ -1989,14 +2079,14 @@ export function OfficeScreen({
             agents: stateRef.current.agents,
             nowMs,
             event: {
-              type: "event",
-              event: "chat",
+              type: 'event',
+              event: 'chat',
               payload: {
                 runId,
                 sessionKey,
-                state: "final",
+                state: 'final',
                 message: {
-                  role: "user",
+                  role: 'user',
                   content: trimmed,
                 },
               },
@@ -2006,10 +2096,10 @@ export function OfficeScreen({
         return;
       }
 
-      zhinaoChat.send(trimmed);
+      // zhinaoChat.send(trimmed);
     },
     [
-      zhinaoChat,
+      // zhinaoChat,
       dispatch,
       phoneCallByAgentId,
       stopVoiceReplyPlayback,
@@ -2022,13 +2112,13 @@ export function OfficeScreen({
     if (lastStandupTriggerKeyRef.current === pendingStandupRequest.key) return;
     if (
       standupController.meeting &&
-      standupController.meeting.phase !== "complete"
+      standupController.meeting.phase !== 'complete'
     ) {
       return;
     }
     lastStandupTriggerKeyRef.current = pendingStandupRequest.key;
     void triggerStandupMeeting(pendingStandupRequest.message).catch((error) => {
-      console.error("Failed to trigger standup meeting.", error);
+      console.error('Failed to trigger standup meeting.', error);
     });
   }, [pendingStandupRequest, standupController.meeting, triggerStandupMeeting]);
 
@@ -2038,9 +2128,9 @@ export function OfficeScreen({
         type: payload.mimeType,
       });
       const formData = new FormData();
-      formData.set("audio", file);
-      const response = await fetch("/api/office/voice/transcribe", {
-        method: "POST",
+      formData.set('audio', file);
+      const response = await fetch('/api/office/voice/transcribe', {
+        method: 'POST',
         body: formData,
       });
       const result = (await response.json().catch(() => null)) as {
@@ -2050,15 +2140,15 @@ export function OfficeScreen({
       } | null;
       if (!response.ok) {
         throw new Error(
-          result?.error?.trim() || "Failed to transcribe voice input.",
+          result?.error?.trim() || 'Failed to transcribe voice input.',
         );
       }
       if (result?.ignored) {
         return null;
       }
-      const transcript = result?.transcript?.trim() ?? "";
+      const transcript = result?.transcript?.trim() ?? '';
       if (!transcript) {
-        throw new Error("OpenClaw returned an empty transcript.");
+        throw new Error('OpenClaw returned an empty transcript.');
       }
       return transcript;
     },
@@ -2067,11 +2157,11 @@ export function OfficeScreen({
 
   const sendVoicePayloadToAgent = useCallback(
     async (
-      agent: Pick<AgentState, "agentId" | "sessionKey"> | null,
+      agent: Pick<AgentState, 'agentId' | 'sessionKey'> | null,
       payload: VoiceSendPayload,
     ) => {
       if (!agent) {
-        throw new Error("Target agent not found.");
+        throw new Error('Target agent not found.');
       }
       const transcript = await transcribeVoicePayload(payload);
       if (!transcript) return;
@@ -2080,15 +2170,15 @@ export function OfficeScreen({
     [handleChatSend, transcribeVoicePayload],
   );
 
-  const handleVoiceSend = useCallback(
-    async (payload: VoiceSendPayload) => {
-      if (!focusedChatAgent) {
-        throw new Error("Select an agent before using push-to-talk.");
-      }
-      await sendVoicePayloadToAgent(focusedChatAgent, payload);
-    },
-    [focusedChatAgent, sendVoicePayloadToAgent],
-  );
+  // const handleVoiceSend = useCallback(
+  //   async (payload: VoiceSendPayload) => {
+  //     if (!focusedChatAgent) {
+  //       throw new Error('Select an agent before using push-to-talk.');
+  //     }
+  //     await sendVoicePayloadToAgent(focusedChatAgent, payload);
+  //   },
+  //   [focusedChatAgent, sendVoicePayloadToAgent],
+  // );
 
   const {
     state: mainVoiceState,
@@ -2098,10 +2188,10 @@ export function OfficeScreen({
     stop: stopMainVoiceRecording,
     clearError: clearMainVoiceError,
   } = useVoiceRecorder({
-    enabled: status === "connected" && Boolean(mainAgent),
+    enabled: status === 'connected' && Boolean(mainAgent),
     onVoiceSend: async (payload) => {
       if (!mainAgent) {
-        throw new Error("Main agent not found.");
+        throw new Error('Main agent not found.');
       }
       await sendVoicePayloadToAgent(mainAgent, payload);
     },
@@ -2119,13 +2209,13 @@ export function OfficeScreen({
   useEffect(() => {
     const optionHeldRef = { current: false };
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Alt" || event.repeat || optionHeldRef.current) return;
+      if (event.key !== 'Alt' || event.repeat || optionHeldRef.current) return;
       optionHeldRef.current = true;
       event.preventDefault();
       void startMainVoiceRecording();
     };
     const handleKeyUp = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Alt") return;
+      if (event.key !== 'Alt') return;
       optionHeldRef.current = false;
       event.preventDefault();
       stopMainVoiceRecording();
@@ -2134,13 +2224,13 @@ export function OfficeScreen({
       optionHeldRef.current = false;
       stopMainVoiceRecording();
     };
-    window.addEventListener("keydown", handleKeyDown, true);
-    window.addEventListener("keyup", handleKeyUp, true);
-    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleWindowBlur);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown, true);
-      window.removeEventListener("keyup", handleKeyUp, true);
-      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [startMainVoiceRecording, stopMainVoiceRecording]);
 
@@ -2192,28 +2282,28 @@ export function OfficeScreen({
         return cached.officeAgent;
       }
       const effectiveAgent: AgentState =
-        latchedWorking && agent.status !== "error"
+        latchedWorking && agent.status !== 'error'
           ? {
               ...agent,
-              status: "running",
+              status: 'running',
               runId: agent.runId ?? `latched-${agent.agentId}`,
             }
           : (deskHeld || gymHeld || qaHeld || phoneBoothHeld || smsBoothHeld) &&
-              agent.status !== "error"
+              agent.status !== 'error'
             ? {
                 ...agent,
-                status: "running",
+                status: 'running',
                 runId:
                   agent.runId ??
                   (qaHeld
                     ? `qa-hold-${agent.agentId}`
                     : smsBoothHeld
                       ? `text-hold-${agent.agentId}`
-                    : phoneBoothHeld
-                      ? `call-hold-${agent.agentId}`
-                    : gymHeld
-                      ? `gym-hold-${agent.agentId}`
-                      : `desk-hold-${agent.agentId}`),
+                      : phoneBoothHeld
+                        ? `call-hold-${agent.agentId}`
+                        : gymHeld
+                          ? `gym-hold-${agent.agentId}`
+                          : `desk-hold-${agent.agentId}`),
               }
             : agent;
       const officeAgent = mapAgentToOffice(effectiveAgent);
@@ -2242,30 +2332,30 @@ export function OfficeScreen({
     workingUntilByAgentId,
   ]);
   const openClawLiveStateText = useMemo(() => {
-    const lines = ["== LIVE OPENCLAW STATE =="];
+    const lines = ['== LIVE OPENCLAW STATE =='];
     if (state.agents.length === 0) {
-      lines.push("No agents loaded yet.");
-      return lines.join("\n");
+      lines.push('No agents loaded yet.');
+      return lines.join('\n');
     }
 
     for (const agent of state.agents) {
-      lines.push("");
-      lines.push(`[${agent.agentId}] ${agent.name || "Agent"}`);
+      lines.push('');
+      lines.push(`[${agent.agentId}] ${agent.name || 'Agent'}`);
       lines.push(
-        `status=${agent.status} runId=${agent.runId ?? "-"} session=${agent.sessionKey}`,
+        `status=${agent.status} runId=${agent.runId ?? '-'} session=${agent.sessionKey}`,
       );
       lines.push(
-        `lastActivity=${agent.lastActivityAt ? formatOpenClawTimestamp(agent.lastActivityAt) : "-"} lastAssistant=${agent.lastAssistantMessageAt ? formatOpenClawTimestamp(agent.lastAssistantMessageAt) : "-"}`,
+        `lastActivity=${agent.lastActivityAt ? formatOpenClawTimestamp(agent.lastActivityAt) : '-'} lastAssistant=${agent.lastAssistantMessageAt ? formatOpenClawTimestamp(agent.lastAssistantMessageAt) : '-'}`,
       );
       lines.push(
         `latestPreview=${formatOpenClawValue(agent.latestPreview)} lastUser=${formatOpenClawValue(agent.lastUserMessage)}`,
       );
       if (agent.thinkingTrace?.trim()) {
-        lines.push("thinking>");
+        lines.push('thinking>');
         lines.push(agent.thinkingTrace.trim());
       }
       if (agent.streamText?.trim()) {
-        lines.push("assistant_stream>");
+        lines.push('assistant_stream>');
         lines.push(agent.streamText.trim());
       }
       const recentOutput = agent.outputLines
@@ -2273,12 +2363,12 @@ export function OfficeScreen({
         .map((line) => line.trimEnd())
         .filter(Boolean);
       if (recentOutput.length > 0) {
-        lines.push("recent_output>");
+        lines.push('recent_output>');
         lines.push(...recentOutput);
       }
     }
 
-    return lines.join("\n");
+    return lines.join('\n');
   }, [state.agents]);
   const normalizedOpenClawConsoleSearch = openClawConsoleSearch
     .trim()
@@ -2291,14 +2381,14 @@ export function OfficeScreen({
         entry.eventName,
         entry.eventKind,
         entry.summary,
-        entry.role ?? "",
-        entry.messageText ?? "",
-        entry.thinkingText ?? "",
-        entry.streamText ?? "",
-        entry.toolText ?? "",
+        entry.role ?? '',
+        entry.messageText ?? '',
+        entry.thinkingText ?? '',
+        entry.streamText ?? '',
+        entry.toolText ?? '',
         entry.payloadText,
       ]
-        .join("\n")
+        .join('\n')
         .toLowerCase()
         .includes(normalizedOpenClawConsoleSearch),
     );
@@ -2335,24 +2425,24 @@ export function OfficeScreen({
   const handleCopyOpenClawConsoleJson = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(openClawConsoleExportJson);
-      setOpenClawConsoleCopyStatus("copied");
+      setOpenClawConsoleCopyStatus('copied');
       window.setTimeout(() => {
-        setOpenClawConsoleCopyStatus("idle");
+        setOpenClawConsoleCopyStatus('idle');
       }, 1800);
     } catch (error) {
-      console.error("Failed to copy OpenClaw console JSON.", error);
-      setOpenClawConsoleCopyStatus("error");
+      console.error('Failed to copy OpenClaw console JSON.', error);
+      setOpenClawConsoleCopyStatus('error');
       window.setTimeout(() => {
-        setOpenClawConsoleCopyStatus("idle");
+        setOpenClawConsoleCopyStatus('idle');
       }, 1800);
     }
   }, [openClawConsoleExportJson]);
   const handleDownloadOpenClawConsoleJson = useCallback(() => {
     const blob = new Blob([openClawConsoleExportJson], {
-      type: "application/json;charset=utf-8",
+      type: 'application/json;charset=utf-8',
     });
     const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
+    const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = `openclaw-events-${Date.now()}.json`;
     document.body.appendChild(anchor);
@@ -2361,39 +2451,36 @@ export function OfficeScreen({
     window.URL.revokeObjectURL(url);
   }, [openClawConsoleExportJson]);
 
-  const monitorByAgentId = useMemo(
-    () => {
-      const nextCache = new Map<
-        string,
-        { agent: AgentState; monitor: OfficeDeskMonitor }
-      >();
-      const nextMonitorByAgentId: Record<string, OfficeDeskMonitor> = {};
+  const monitorByAgentId = useMemo(() => {
+    const nextCache = new Map<
+      string,
+      { agent: AgentState; monitor: OfficeDeskMonitor }
+    >();
+    const nextMonitorByAgentId: Record<string, OfficeDeskMonitor> = {};
 
-      for (const agent of state.agents) {
-        const cached = deskMonitorCacheRef.current.get(agent.agentId);
-        if (cached && cached.agent === agent) {
-          nextCache.set(agent.agentId, cached);
-          nextMonitorByAgentId[agent.agentId] = cached.monitor;
-          continue;
-        }
-
-        const monitor = buildOfficeDeskMonitor(agent);
-        const entry = { agent, monitor };
-        nextCache.set(agent.agentId, entry);
-        nextMonitorByAgentId[agent.agentId] = monitor;
+    for (const agent of state.agents) {
+      const cached = deskMonitorCacheRef.current.get(agent.agentId);
+      if (cached && cached.agent === agent) {
+        nextCache.set(agent.agentId, cached);
+        nextMonitorByAgentId[agent.agentId] = cached.monitor;
+        continue;
       }
 
-      deskMonitorCacheRef.current = nextCache;
-      return nextMonitorByAgentId;
-    },
-    [state.agents],
-  );
+      const monitor = buildOfficeDeskMonitor(agent);
+      const entry = { agent, monitor };
+      nextCache.set(agent.agentId, entry);
+      nextMonitorByAgentId[agent.agentId] = monitor;
+    }
+
+    deskMonitorCacheRef.current = nextCache;
+    return nextMonitorByAgentId;
+  }, [state.agents]);
   const githubSkill = useMemo<SkillStatusEntry | null>(
     () =>
       marketplace.skillsReport?.skills.find((skill) => {
         const normalizedKey = skill.skillKey.trim().toLowerCase();
         const normalizedName = skill.name.trim().toLowerCase();
-        return normalizedKey === "github" || normalizedName === "github";
+        return normalizedKey === 'github' || normalizedName === 'github';
       }) ?? null,
     [marketplace.skillsReport],
   );
@@ -2402,7 +2489,7 @@ export function OfficeScreen({
 
   const runningCount = state.agents.filter(
     (agent) =>
-      agent.status === "running" ||
+      agent.status === 'running' ||
       deskHoldByAgentId[agent.agentId] ||
       gymHoldByAgentId[agent.agentId] ||
       phoneBoothHoldByAgentId[agent.agentId] ||
@@ -2413,10 +2500,9 @@ export function OfficeScreen({
     (agent) => agent.hasUnseenActivity,
   ).length;
   const showEmptyFleetBanner =
-    status === "connected" && agentsLoaded && state.agents.length === 0;
+    status === 'connected' && agentsLoaded && state.agents.length === 0;
   const emptyFleetMessage =
-    state.error?.trim() ||
-    "Connected to the gateway, but no agents were loaded into the office.";
+    state.error?.trim() || t('office.emptyFleetMessage');
 
   return (
     <main className="h-full w-full overflow-hidden bg-black">
@@ -2472,20 +2558,20 @@ export function OfficeScreen({
         onStandupStartRequested={() => {
           if (
             !standupController.meeting ||
-            standupController.meeting.phase === "complete"
+            standupController.meeting.phase === 'complete'
           ) {
-            void standupController.startMeeting("manual");
+            void standupController.startMeeting('manual');
           }
         }}
         onMonitorSelect={(agentId) => {
           setMonitorAgentId(agentId);
           if (agentId) {
             setSelectedChatAgentId(agentId);
-            dispatch({ type: "selectAgent", agentId });
+            dispatch({ type: 'selectAgent', agentId });
           }
         }}
         onAgentEdit={(agentId) => {
-          openAgentEditor(agentId, "avatar");
+          openAgentEditor(agentId, 'avatar');
         }}
         onDeskAssignmentChange={handleDeskAssignmentChange}
         onDeskAssignmentsReset={handleDeskAssignmentsReset}
@@ -2500,7 +2586,7 @@ export function OfficeScreen({
         onTextMessageComplete={handleTextMessageComplete}
         onOpenGithubSkillSetup={() => {
           setSidebarOpen(true);
-          setActiveSidebarTab("marketplace");
+          setActiveSidebarTab('marketplace');
         }}
       />
 
@@ -2510,9 +2596,11 @@ export function OfficeScreen({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/80">
-                  Office fleet status
+                  {t('office.emptyFleetStatus')}
                 </p>
-                <p className="mt-1 text-sm text-amber-50">{emptyFleetMessage}</p>
+                <p className="mt-1 text-sm text-amber-50">
+                  {emptyFleetMessage}
+                </p>
               </div>
               <button
                 type="button"
@@ -2521,7 +2609,7 @@ export function OfficeScreen({
                   void loadAgents({ forceSettings: true });
                 }}
               >
-                Retry
+                {t('office.retry')}
               </button>
             </div>
           </div>
@@ -2540,7 +2628,7 @@ export function OfficeScreen({
               agents={state.agents}
               onSelectAgent={(agentId) => {
                 handleOpenAgentChat(agentId);
-                setActiveSidebarTab("inbox");
+                setActiveSidebarTab('inbox');
               }}
             />
           }
@@ -2550,7 +2638,7 @@ export function OfficeScreen({
               agents={state.agents}
               onSelectAgent={(agentId) => {
                 handleOpenAgentChat(agentId);
-                setActiveSidebarTab("history");
+                setActiveSidebarTab('history');
               }}
             />
           }
@@ -2568,7 +2656,7 @@ export function OfficeScreen({
               onSelectAgent={handleOpenAgentChat}
               onOpenAgentSettings={(agentId) => {
                 handleOpenAgentChat(agentId);
-                router.push("/office");
+                router.push('/office');
               }}
             />
           }
@@ -2582,7 +2670,7 @@ export function OfficeScreen({
               settingsCoordinator={settingsCoordinator}
               onSelectAgent={(agentId) => {
                 handleOpenAgentChat(agentId);
-                setActiveSidebarTab("analytics");
+                setActiveSidebarTab('analytics');
               }}
             />
           }
@@ -2591,7 +2679,7 @@ export function OfficeScreen({
 
       {showOnboardingWizard ? (
         <OnboardingWizard
-          gatewayConnected={status === "connected"}
+          gatewayConnected={status === 'connected'}
           agentCount={state.agents.length}
           gatewayUrl={gatewayUrl}
           token={token}
@@ -2602,17 +2690,17 @@ export function OfficeScreen({
           }}
           onComplete={handleCompleteOnboarding}
           connectionError={gatewayError}
-          connecting={_gatewayStatus === "connecting"}
+          connecting={_gatewayStatus === 'connecting'}
         />
       ) : null}
 
       {showOpenClawConsole ? (
         <section className="pointer-events-auto fixed bottom-3 left-3 z-30 flex w-[520px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-cyan-500/25 bg-black/78 shadow-2xl backdrop-blur">
           <div className="flex items-center justify-between border-b border-cyan-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
-            <span>OpenClaw Event Console</span>
+            <span>{t('office.console.title')}</span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-cyan-100/45">
-                agents {state.agents.length} | events{" "}
+                agents {state.agents.length} | events{' '}
                 {filteredOpenClawLogEntries.length}/{openClawLogEntries.length}
               </span>
               <button
@@ -2622,25 +2710,25 @@ export function OfficeScreen({
                 }}
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                {openClawConsoleCopyStatus === "copied"
-                  ? "Copied"
-                  : openClawConsoleCopyStatus === "error"
-                    ? "Copy Failed"
-                    : "Copy JSON"}
+                {openClawConsoleCopyStatus === 'copied'
+                  ? t('office.console.copied')
+                  : openClawConsoleCopyStatus === 'error'
+                    ? t('office.console.copyFailed')
+                    : t('office.console.copy')}
               </button>
               <button
                 type="button"
                 onClick={handleDownloadOpenClawConsoleJson}
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                Download JSON
+                {t('office.console.download')}
               </button>
               <button
                 type="button"
                 onClick={handleClearOpenClawConsole}
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                Clear
+                {t('office.console.clear')}
               </button>
               <button
                 type="button"
@@ -2649,360 +2737,224 @@ export function OfficeScreen({
                 }
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                {openClawConsoleCollapsed ? "Expand" : "Minimize"}
+                {openClawConsoleCollapsed
+                  ? t('office.console.expand')
+                  : t('office.console.minimize')}
               </button>
             </div>
           </div>
           {!openClawConsoleCollapsed ? (
             <div className="flex h-[320px] flex-col gap-3 overflow-y-auto bg-[#02090b]/96 px-3 py-2 font-mono text-[10px] leading-4">
-            <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={openClawConsoleSearch}
-                  onChange={(event) =>
-                    setOpenClawConsoleSearch(event.target.value)
-                  }
-                  placeholder="Search logs, payloads, thinking, user text."
-                  className="min-w-0 flex-1 rounded border border-cyan-500/20 bg-black/35 px-2 py-1 text-[10px] normal-case tracking-normal text-cyan-50 placeholder:text-cyan-100/30 focus:border-cyan-400/40 focus:outline-none"
-                />
-                {openClawConsoleSearch ? (
-                  <button
-                    type="button"
-                    onClick={() => setOpenClawConsoleSearch("")}
-                    className="rounded border border-cyan-500/20 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
-                  >
-                    Reset
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            {openClawLiveStateMatchesSearch ? (
               <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2">
-                <div className="mb-1 text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
-                  Live OpenClaw State
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={openClawConsoleSearch}
+                    onChange={(event) =>
+                      setOpenClawConsoleSearch(event.target.value)
+                    }
+                    placeholder={t('office.console.searchPlaceholder')}
+                    className="min-w-0 flex-1 rounded border border-cyan-500/20 bg-black/35 px-2 py-1 text-[10px] normal-case tracking-normal text-cyan-50 placeholder:text-cyan-100/30 focus:border-cyan-400/40 focus:outline-none"
+                  />
+                  {openClawConsoleSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => setOpenClawConsoleSearch('')}
+                      className="rounded border border-cyan-500/20 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
+                    >
+                      {t('office.console.reset')}
+                    </button>
+                  ) : null}
                 </div>
-                <pre className="whitespace-pre-wrap break-words text-cyan-100/80">
-                  {renderOpenClawHighlightedText(
-                    openClawLiveStateText,
-                    openClawConsoleSearch,
-                  )}
-                </pre>
               </div>
-            ) : (
-              <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2 text-cyan-100/45">
-                Live OpenClaw state does not match the current search.
+              {openClawLiveStateMatchesSearch ? (
+                <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2">
+                  <div className="mb-1 text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
+                    {t('office.console.liveState')}
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words text-cyan-100/80">
+                    {renderOpenClawHighlightedText(
+                      openClawLiveStateText,
+                      openClawConsoleSearch,
+                    )}
+                  </pre>
+                </div>
+              ) : (
+                <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2 text-cyan-100/45">
+                  {t('office.console.liveStateNotMatched')}
+                </div>
+              )}
+              <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
+                {t('office.console.gatewayEvents')}
               </div>
-            )}
-            <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
-              Raw OpenClaw Gateway Events
-            </div>
-            {filteredOpenClawLogEntries.length === 0 ? (
-              <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2 text-cyan-100/45">
-                {openClawLogEntries.length === 0
-                  ? "No OpenClaw gateway events received yet."
-                  : "No OpenClaw events match the current search."}
-              </div>
-            ) : (
-              filteredOpenClawLogEntries.map((entry) => {
-                const isUserMessage = entry.role === "user";
-                return (
-                  <div
-                    key={entry.id}
-                    className={`rounded border p-2 ${
-                      isUserMessage
-                        ? "border-amber-400/30 bg-amber-950/12"
-                        : "border-cyan-500/12 bg-cyan-950/8"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div
-                        className={`text-[9px] uppercase tracking-[0.16em] ${
-                          isUserMessage
-                            ? "text-amber-300/85"
-                            : "text-cyan-300/75"
-                        }`}
-                      >
-                        {renderOpenClawHighlightedText(
-                          `[${entry.timestamp}] ${entry.eventName} / ${entry.eventKind}`,
-                          openClawConsoleSearch,
-                        )}
-                      </div>
-                      {entry.role ? (
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-[9px] uppercase ${
+              {filteredOpenClawLogEntries.length === 0 ? (
+                <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2 text-cyan-100/45">
+                  {openClawLogEntries.length === 0
+                    ? t('office.console.noEventsYet')
+                    : t('office.console.noEventsMatched')}
+                </div>
+              ) : (
+                filteredOpenClawLogEntries.map((entry) => {
+                  const isUserMessage = entry.role === 'user';
+                  return (
+                    <div
+                      key={entry.id}
+                      className={`rounded border p-2 ${
+                        isUserMessage
+                          ? 'border-amber-400/30 bg-amber-950/12'
+                          : 'border-cyan-500/12 bg-cyan-950/8'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div
+                          className={`text-[9px] uppercase tracking-[0.16em] ${
                             isUserMessage
-                              ? "bg-amber-400/15 text-amber-200"
-                              : "bg-cyan-400/10 text-cyan-200/80"
+                              ? 'text-amber-300/85'
+                              : 'text-cyan-300/75'
                           }`}
                         >
-                          {entry.role}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-1 whitespace-pre-wrap break-words text-cyan-100/55">
-                      {renderOpenClawHighlightedText(
-                        entry.summary,
-                        openClawConsoleSearch,
-                      )}
-                    </div>
-                    {entry.messageText ? (
-                      <div className="mt-2 rounded border border-amber-400/20 bg-amber-950/25 px-2 py-1 text-amber-100">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-amber-300/75">
-                          User / Message Text
-                        </div>
-                        <div className="mt-1 whitespace-pre-wrap break-words">
                           {renderOpenClawHighlightedText(
-                            entry.messageText,
+                            `[${entry.timestamp}] ${entry.eventName} / ${entry.eventKind}`,
                             openClawConsoleSearch,
                           )}
                         </div>
+                        {entry.role ? (
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[9px] uppercase ${
+                              isUserMessage
+                                ? 'bg-amber-400/15 text-amber-200'
+                                : 'bg-cyan-400/10 text-cyan-200/80'
+                            }`}
+                          >
+                            {entry.role}
+                          </span>
+                        ) : null}
                       </div>
-                    ) : null}
-                    {entry.thinkingText ? (
-                      <div className="mt-2 rounded border border-fuchsia-400/15 bg-fuchsia-950/15 px-2 py-1 text-fuchsia-100/90">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-fuchsia-300/70">
-                          Thinking
-                        </div>
-                        <div className="mt-1 whitespace-pre-wrap break-words">
-                          {renderOpenClawHighlightedText(
-                            entry.thinkingText,
-                            openClawConsoleSearch,
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                    {entry.streamText ? (
-                      <div className="mt-2 rounded border border-cyan-400/15 bg-cyan-950/18 px-2 py-1 text-cyan-50/90">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
-                          Stream
-                        </div>
-                        <div className="mt-1 whitespace-pre-wrap break-words">
-                          {renderOpenClawHighlightedText(
-                            entry.streamText,
-                            openClawConsoleSearch,
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                    {entry.toolText ? (
-                      <div className="mt-2 rounded border border-violet-400/15 bg-violet-950/15 px-2 py-1 text-violet-100/90">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-violet-300/70">
-                          Tool Output
-                        </div>
-                        <div className="mt-1 whitespace-pre-wrap break-words">
-                          {renderOpenClawHighlightedText(
-                            entry.toolText,
-                            openClawConsoleSearch,
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-[9px] uppercase tracking-[0.16em] text-cyan-300/55">
-                        Raw Payload
-                      </summary>
-                      <pre className="mt-1 whitespace-pre-wrap break-words text-cyan-100/45">
+                      <div className="mt-1 whitespace-pre-wrap break-words text-cyan-100/55">
                         {renderOpenClawHighlightedText(
-                          entry.payloadText,
+                          entry.summary,
                           openClawConsoleSearch,
                         )}
-                      </pre>
-                    </details>
-                  </div>
-                );
-              })
-            )}
+                      </div>
+                      {entry.messageText ? (
+                        <div className="mt-2 rounded border border-amber-400/20 bg-amber-950/25 px-2 py-1 text-amber-100">
+                          <div className="text-[9px] uppercase tracking-[0.16em] text-amber-300/75">
+                            {t('office.console.userMessage')}
+                          </div>
+                          <div className="mt-1 whitespace-pre-wrap break-words">
+                            {renderOpenClawHighlightedText(
+                              entry.messageText,
+                              openClawConsoleSearch,
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                      {entry.thinkingText ? (
+                        <div className="mt-2 rounded border border-fuchsia-400/15 bg-fuchsia-950/15 px-2 py-1 text-fuchsia-100/90">
+                          <div className="text-[9px] uppercase tracking-[0.16em] text-fuchsia-300/70">
+                            {t('office.console.thinking')}
+                          </div>
+                          <div className="mt-1 whitespace-pre-wrap break-words">
+                            {renderOpenClawHighlightedText(
+                              entry.thinkingText,
+                              openClawConsoleSearch,
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                      {entry.streamText ? (
+                        <div className="mt-2 rounded border border-cyan-400/15 bg-cyan-950/18 px-2 py-1 text-cyan-50/90">
+                          <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
+                            {t('office.console.stream')}
+                          </div>
+                          <div className="mt-1 whitespace-pre-wrap break-words">
+                            {renderOpenClawHighlightedText(
+                              entry.streamText,
+                              openClawConsoleSearch,
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                      {entry.toolText ? (
+                        <div className="mt-2 rounded border border-violet-400/15 bg-violet-950/15 px-2 py-1 text-violet-100/90">
+                          <div className="text-[9px] uppercase tracking-[0.16em] text-violet-300/70">
+                            {t('office.console.toolOutput')}
+                          </div>
+                          <div className="mt-1 whitespace-pre-wrap break-words">
+                            {renderOpenClawHighlightedText(
+                              entry.toolText,
+                              openClawConsoleSearch,
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[9px] uppercase tracking-[0.16em] text-cyan-300/55">
+                          {t('office.console.rawPayload')}
+                        </summary>
+                        <pre className="mt-1 whitespace-pre-wrap break-words text-cyan-100/45">
+                          {renderOpenClawHighlightedText(
+                            entry.payloadText,
+                            openClawConsoleSearch,
+                          )}
+                        </pre>
+                      </details>
+                    </div>
+                  );
+                })
+              )}
             </div>
           ) : null}
         </section>
       ) : null}
 
-      <div
-        className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 ${sidebarOpen ? "right-84" : "right-3"} ${
-          debugEnabled ? "hidden" : ""
-        }`}
-      >
-        {chatOpen && (
-          <div
-            className="flex overflow-hidden rounded border border-white/10 bg-[#0e0a04] shadow-2xl"
-            style={{ width: 560, height: 520 }}
-          >
-            <div className="flex w-44 shrink-0 flex-col border-r border-white/10">
-              <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-widest text-white/60">
-                  Agents
-                </span>
-                <span className="font-mono text-[10px] text-white/40">
-                  {state.agents.length}
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {state.agents.length === 0 ? (
-                  <div className="px-3 py-4 font-mono text-[11px] text-white/30">
-                    No agents.
-                  </div>
-                ) : (
-                  state.agents.map((agent) => {
-                    const isSelected = agent.agentId === selectedChatAgentId;
-                    const isRunning = agent.status === "running";
-                    return (
-                      <button
-                        key={agent.agentId}
-                        type="button"
-                        onClick={() => handleOpenAgentChat(agent.agentId)}
-                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors ${
-                          isSelected
-                            ? "bg-white/10 text-white"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/80"
-                        }`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${isRunning ? "bg-emerald-400" : "bg-white/20"}`}
-                        />
-                        <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
-                          {agent.name || agent.agentId}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+      <OfficeChatDock
+        sidebarOpen={sidebarOpen}
+        debugEnabled={debugEnabled}
+        chatOpen={chatOpen}
+        runningCount={runningCount}
+        agents={state.agents}
+        selectedChatAgentId={selectedChatAgentId}
+        onToggleChat={() => setChatOpen((prev) => !prev)}
+        onSelectAgent={handleOpenAgentChat}
+      />
 
-            <div className="flex min-w-0 flex-1 flex-col">
-              {focusedChatAgent ? (
-                <div className="flex flex-1 flex-col">
-                  <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-                    <span className="font-mono text-[11px] font-semibold text-white/80">
-                      {focusedChatAgent.name || focusedChatAgent.agentId}
-                    </span>
-                    <span className={`font-mono text-[10px] ${zhinaoChat.connected ? "text-emerald-400" : "text-white/30"}`}>
-                      {zhinaoChat.connected ? "connected" : "disconnected"}
-                    </span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-                    {zhinaoChat.messages.map((msg, idx) => (
-                      <div
-                        key={msg.id ?? idx}
-                        className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded px-2.5 py-1.5 font-mono text-[11px] whitespace-pre-wrap break-words ${
-                            msg.sender === "user"
-                              ? "bg-amber-500/20 text-amber-100"
-                              : "bg-white/5 text-white/80"
-                          }`}
-                        >
-                          {msg.isLoading && !msg.text ? (
-                            <span className="animate-pulse text-white/40">thinking...</span>
-                          ) : (
-                            msg.text
-                          )}
-                          {msg.isStreaming && (
-                            <span className="animate-pulse text-cyan-400">▌</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <form
-                    className="flex items-center gap-2 border-t border-white/10 px-3 py-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const form = e.currentTarget;
-                      const input = form.elements.namedItem("chatInput") as HTMLInputElement;
-                      const value = input?.value?.trim();
-                      if (value) {
-                        zhinaoChat.send(value);
-                        input.value = "";
-                      }
-                    }}
-                  >
-                    <input
-                      name="chatInput"
-                      type="text"
-                      placeholder="Type a message..."
-                      className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2.5 py-1.5 font-mono text-[11px] text-white placeholder-white/30 outline-none focus:border-amber-500/50"
-                      autoComplete="off"
-                    />
-                    <button
-                      type="submit"
-                      className="rounded border border-amber-700/50 bg-amber-500/15 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-amber-400 transition-colors hover:bg-amber-500/25"
-                    >
-                      Send
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="flex flex-1 items-center justify-center font-mono text-[12px] text-white/30">
-                  Select an agent to chat.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setChatOpen((prev) => !prev)}
-          className="flex items-center gap-1.5 rounded border border-amber-700/50 bg-[#0e0a04]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-amber-500/80 shadow-lg backdrop-blur transition-colors hover:border-amber-600/70 hover:text-amber-400"
-        >
-          {chatOpen ? (
-            <>
-              <ChevronDown className="h-3.5 w-3.5" />
-              <span>HIDE CHAT</span>
-            </>
-          ) : (
-            <>
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>CHAT</span>
-              {runningCount > 0 ? (
-                <span className="rounded bg-amber-500/20 px-1 text-[10px] text-amber-400">
-                  {runningCount}
-                </span>
-              ) : null}
-            </>
-          )}
-        </button>
-      </div>
-
-      {mainVoiceState !== "idle" || mainVoiceError ? (
+      {mainVoiceState !== 'idle' || mainVoiceError ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
           <div
             className={`flex min-w-[220px] items-center gap-3 rounded-full border px-4 py-3 font-mono text-[12px] shadow-2xl backdrop-blur ${
               mainVoiceError
-                ? "border-red-500/45 bg-red-950/75 text-red-100"
-                : "border-cyan-400/35 bg-black/70 text-white"
+                ? 'border-red-500/45 bg-red-950/75 text-red-100'
+                : 'border-cyan-400/35 bg-black/70 text-white'
             }`}
           >
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                mainVoiceState === "recording"
-                  ? "bg-red-500/25 text-red-200"
-                  : mainVoiceState === "transcribing"
-                    ? "bg-cyan-400/20 text-cyan-100"
-                    : "bg-white/10 text-white"
+                mainVoiceState === 'recording'
+                  ? 'bg-red-500/25 text-red-200'
+                  : mainVoiceState === 'transcribing'
+                    ? 'bg-cyan-400/20 text-cyan-100'
+                    : 'bg-white/10 text-white'
               }`}
             >
               <Mic className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-[0.18em] text-white/55">
-                Main agent
+                {t('office.mainAgent')}
               </span>
               <span className="text-[12px] font-medium text-white">
                 {mainVoiceError
                   ? mainVoiceError
-                  : mainVoiceState === "recording"
-                    ? "Listening. Release Option to send."
-                    : mainVoiceState === "transcribing"
-                      ? "Transcribing your voice note."
-                      : mainVoiceState === "requesting"
-                        ? "Requesting microphone access."
+                  : mainVoiceState === 'recording'
+                    ? t('office.voice.listening')
+                    : mainVoiceState === 'transcribing'
+                      ? t('office.voice.transcribing')
+                      : mainVoiceState === 'requesting'
+                        ? t('office.voice.requestingMic')
                         : !mainVoiceSupported
-                          ? "Voice shortcuts are not supported in this browser."
-                          : "Voice shortcut ready."}
+                          ? t('office.voice.unsupported')
+                          : t('office.voice.ready')}
               </span>
             </div>
           </div>
@@ -3011,12 +2963,14 @@ export function OfficeScreen({
 
       {debugEnabled ? (
         <section className="fixed bottom-3 right-3 z-50 max-h-[45vh] w-[560px] overflow-auto rounded border border-slate-700 bg-black/90 p-3 font-mono text-[11px] text-slate-100">
-          <div className="mb-2 font-semibold text-cyan-300">office debug</div>
+          <div className="mb-2 font-semibold text-cyan-300">
+            {t('office.debug.title')}
+          </div>
           <div className="mb-2 text-slate-400">
             status: {status} | agents: {state.agents.length}
           </div>
           {debugRows.length === 0 ? (
-            <div className="text-slate-500">No debug data yet.</div>
+            <div className="text-slate-500">{t('office.debug.noData')}</div>
           ) : (
             <div className="space-y-2">
               {debugRows.map((row) => (
@@ -3028,7 +2982,7 @@ export function OfficeScreen({
                     {row.name} ({row.agentId})
                   </div>
                   <div>
-                    storeStatus={row.storeStatus} runId={row.runId ?? "null"}{" "}
+                    storeStatus={row.storeStatus} runId={row.runId ?? 'null'}{' '}
                     inferredRunning=
                     {String(row.inferredRunning)}
                   </div>
@@ -3036,13 +2990,13 @@ export function OfficeScreen({
                     lastRole={row.lastRole} messages={row.messageCount}
                   </div>
                   <div className="truncate text-slate-400">
-                    detectedSession={row.detectedSessionKey || "-"}
+                    detectedSession={row.detectedSessionKey || '-'}
                   </div>
                   <div className="truncate text-slate-400">
-                    lastText={row.lastText || "-"}
+                    lastText={row.lastText || '-'}
                   </div>
                   <div className="truncate text-slate-500">
-                    sessions={row.inspectedSessions || "-"}
+                    sessions={row.inspectedSessions || '-'}
                   </div>
                   <div className="text-slate-500">
                     source={row.inferenceSource}
@@ -3069,7 +3023,7 @@ export function OfficeScreen({
             if (!client) return false;
             try {
               await renameGatewayAgent({ client, agentId, name });
-              dispatch({ type: "updateAgent", agentId, patch: { name } });
+              dispatch({ type: 'updateAgent', agentId, patch: { name } });
               return true;
             } catch {
               return false;

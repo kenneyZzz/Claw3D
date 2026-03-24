@@ -15,29 +15,12 @@ import {
 } from "lucide-react";
 
 import type { OfficeSkillsMarketplaceController } from "@/features/office/hooks/useOfficeSkillsMarketplace";
+import { useI18n } from "@/lib/i18n";
 import type { SkillMarketplaceCollectionId, SkillMarketplaceEntry } from "@/lib/skills/marketplace";
 import { buildSkillMarketplaceCollections } from "@/lib/skills/marketplace";
 import { buildAgentSkillsAllowlistSet, deriveAgentSkillsAccessMode } from "@/lib/skills/presentation";
 
 type MarketplaceFilter = "all" | SkillMarketplaceCollectionId;
-
-const FILTER_LABELS: Record<MarketplaceFilter, string> = {
-  all: "All",
-  featured: "Featured",
-  installed: "Installed",
-  "setup-required": "Needs setup",
-  "built-in": "Built-in",
-  workspace: "Workspace",
-  extra: "Community",
-  other: "Other",
-};
-
-const READINESS_LABELS = {
-  ready: "Ready",
-  "needs-setup": "Needs setup",
-  unavailable: "Unavailable",
-  "disabled-globally": "Disabled globally",
-} as const;
 
 const READINESS_CLASSES = {
   ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
@@ -98,6 +81,7 @@ export function SkillsMarketplacePanel({
   onSelectAgent: (agentId: string) => void;
   onOpenAgentSettings: (agentId: string) => void;
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<MarketplaceFilter>("all");
   const [detailSkillKey, setDetailSkillKey] = useState<string | null>(null);
@@ -170,6 +154,31 @@ export function SkillsMarketplacePanel({
     collections
       .flatMap((collection) => collection.entries)
       .find((entry) => entry.skill.skillKey === detailSkillKey) ?? null;
+  const filterLabels: Record<MarketplaceFilter, string> = {
+    all: t("marketplace.filter.all"),
+    featured: t("marketplace.filter.featured"),
+    installed: t("marketplace.filter.installed"),
+    "setup-required": t("marketplace.filter.setupRequired"),
+    "built-in": t("marketplace.filter.builtIn"),
+    workspace: t("marketplace.filter.workspace"),
+    extra: t("marketplace.filter.community"),
+    other: t("marketplace.filter.other"),
+  };
+  const readinessLabels = {
+    ready: t("marketplace.readiness.ready"),
+    "needs-setup": t("marketplace.readiness.needsSetup"),
+    unavailable: t("marketplace.readiness.unavailable"),
+    "disabled-globally": t("marketplace.readiness.disabledGlobally"),
+  } as const;
+  const collectionLabels: Partial<Record<SkillMarketplaceCollectionId, string>> = {
+    "built-in": t("marketplace.filter.builtIn"),
+    installed: t("marketplace.filter.installed"),
+    workspace: t("marketplace.filter.workspace"),
+    extra: t("marketplace.filter.community"),
+    other: t("marketplace.filter.other"),
+    featured: t("marketplace.filter.featured"),
+    "setup-required": t("marketplace.filter.setupRequired"),
+  };
 
   return (
     <section className="relative flex h-full min-h-0 flex-col">
@@ -177,10 +186,10 @@ export function SkillsMarketplacePanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-              Skills Marketplace
+              {t("marketplace.title")}
             </div>
             <div className="mt-1 font-mono text-[11px] text-white/40">
-              Browse gateway skills like a curated plugin store.
+              {t("marketplace.subtitle")}
             </div>
           </div>
           <button
@@ -189,29 +198,28 @@ export function SkillsMarketplacePanel({
             className="inline-flex items-center gap-1 rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-100"
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            Refresh
+            {t("marketplace.refresh")}
           </button>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="rounded border border-amber-500/20 bg-amber-500/10 px-3 py-2 font-mono text-[10px] text-amber-100">
-          Install and global setup actions affect the whole gateway. Agent access controls below apply only
-          to the selected agent.
+          {t("marketplace.installWarning")}
         </div>
 
         <div className="mt-3 rounded border border-cyan-500/15 bg-white/[0.03] px-3 py-3">
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
-                Agent context
+                {t("marketplace.agentContext")}
               </div>
               <div className="mt-1 font-mono text-[11px] text-white/75">
-                {marketplace.selectedAgent?.name ?? "No agent selected"}
+                {marketplace.selectedAgent?.name ?? t("marketplace.noAgentSelected")}
               </div>
             </div>
             <div className="font-mono text-[10px] text-white/35">
-              Access mode: {accessMode === "selected" ? "Selected skills" : accessMode}
+              {t("marketplace.accessMode")}: {accessMode === "selected" ? t("marketplace.selectedSkills") : accessMode}
             </div>
           </div>
 
@@ -219,9 +227,10 @@ export function SkillsMarketplacePanel({
             <select
               value={marketplace.selectedAgentId ?? ""}
               onChange={(event) => marketplace.setSelectedAgentId(event.target.value || null)}
+              aria-label={t("marketplace.agentContext")}
               className="min-w-0 flex-1 rounded border border-white/10 bg-black/40 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
             >
-              {marketplace.agents.length === 0 ? <option value="">No agents available</option> : null}
+              {marketplace.agents.length === 0 ? <option value="">{t("marketplace.noAgentsAvailable")}</option> : null}
               {marketplace.agents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>
                   {agent.name}
@@ -238,7 +247,7 @@ export function SkillsMarketplacePanel({
               }}
               className="rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Focus chat
+              {t("marketplace.focusChat")}
             </button>
             <button
               type="button"
@@ -250,7 +259,7 @@ export function SkillsMarketplacePanel({
               }}
               className="rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Settings
+              {t("marketplace.settings")}
             </button>
           </div>
         </div>
@@ -259,14 +268,14 @@ export function SkillsMarketplacePanel({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search skills, categories, or sources"
+            placeholder={t("marketplace.searchPlaceholder")}
             className="w-full rounded border border-white/10 bg-black/40 px-3 py-2 font-mono text-[11px] text-white/85 outline-none transition focus:border-cyan-400/35"
-            aria-label="Search marketplace skills"
+            aria-label={t("marketplace.searchAria")}
           />
         </div>
 
         <div className="mt-2 flex flex-wrap gap-1">
-          {(Object.keys(FILTER_LABELS) as MarketplaceFilter[]).map((filterId) => (
+          {(Object.keys(filterLabels) as MarketplaceFilter[]).map((filterId) => (
             <button
               key={filterId}
               type="button"
@@ -277,7 +286,7 @@ export function SkillsMarketplacePanel({
                   : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white/80"
               }`}
             >
-              {FILTER_LABELS[filterId]} ({filterCounts[filterId]})
+              {filterLabels[filterId]} ({filterCounts[filterId]})
             </button>
           ))}
         </div>
@@ -301,14 +310,14 @@ export function SkillsMarketplacePanel({
         ) : null}
 
         {marketplace.loading ? (
-          <div className="mt-4 font-mono text-[11px] text-white/45">Loading marketplace inventory...</div>
+          <div className="mt-4 font-mono text-[11px] text-white/45">{t("marketplace.loadingInventory")}</div>
         ) : null}
 
         {!marketplace.loading && activeFilter === "all" && featuredEntries.length > 0 ? (
           <div className="mt-4">
             <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
               <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
-              Featured shelf
+              {t("marketplace.featuredShelf")}
             </div>
             <div className="grid gap-2">
               {featuredEntries.map((entry) => (
@@ -324,7 +333,7 @@ export function SkillsMarketplacePanel({
                       <div className="mt-1 font-mono text-[10px] text-cyan-100/75">{entry.metadata.tagline}</div>
                     </div>
                     <div className="rounded border border-cyan-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-cyan-100/85">
-                      {entry.metadata.editorBadge ?? "Featured"}
+                      {entry.metadata.editorBadge ?? t("marketplace.featured")}
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-3 font-mono text-[10px] text-white/55">
@@ -332,7 +341,7 @@ export function SkillsMarketplacePanel({
                       <Star className="h-3 w-3 text-amber-300" />
                       {formatRating(entry.metadata.rating)}
                     </span>
-                    <span>{formatInstalls(entry.metadata.installs)} installs</span>
+                    <span>{t("marketplace.installsCount", { count: formatInstalls(entry.metadata.installs) })}</span>
                     <span>{entry.metadata.category}</span>
                   </div>
                 </button>
@@ -343,7 +352,7 @@ export function SkillsMarketplacePanel({
 
         {!marketplace.loading && filteredCollections.length === 0 ? (
           <div className="mt-4 rounded border border-white/10 bg-white/[0.03] px-3 py-4 font-mono text-[11px] text-white/45">
-            No matching skills found for this gateway.
+            {t("marketplace.noMatchingSkills")}
           </div>
         ) : null}
 
@@ -351,7 +360,7 @@ export function SkillsMarketplacePanel({
           filteredCollections.map((collection) => (
             <div key={collection.id} className="mt-4">
               <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                {collection.label}
+                {collectionLabels[collection.id] ?? collection.label}
               </div>
               <div className="flex flex-col gap-2">
                 {collection.entries.map((entry) => {
@@ -359,19 +368,19 @@ export function SkillsMarketplacePanel({
                   const primaryAction =
                     entry.readiness === "needs-setup" && entry.installable
                       ? {
-                          label: "Install deps",
+                          label: t("marketplace.installDeps"),
                           run: () => void marketplace.handleInstallSkill(entry.skill),
                           icon: Download,
                         }
                       : entry.readiness === "disabled-globally"
                         ? {
-                            label: "Enable gateway",
+                            label: t("marketplace.enableGateway"),
                             run: () => void marketplace.handleSetSkillGlobalEnabled(entry.skill.skillKey, true),
                             icon: Settings2,
                           }
                         : entry.readiness === "needs-setup"
                           ? {
-                              label: "Open settings",
+                              label: t("marketplace.openSettings"),
                               run: () => {
                                 if (marketplace.selectedAgentId) {
                                   onOpenAgentSettings(marketplace.selectedAgentId);
@@ -402,7 +411,7 @@ export function SkillsMarketplacePanel({
                             <span
                               className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] ${READINESS_CLASSES[entry.readiness]}`}
                             >
-                              {READINESS_LABELS[entry.readiness]}
+                              {readinessLabels[entry.readiness]}
                             </span>
                           </div>
                           <div className="mt-2 font-mono text-[10px] text-white/65">{entry.metadata.tagline}</div>
@@ -415,7 +424,7 @@ export function SkillsMarketplacePanel({
                               <Star className="h-3 w-3 text-amber-300" />
                               {formatRating(entry.metadata.rating)}
                             </span>
-                            <span>{formatInstalls(entry.metadata.installs)} installs</span>
+                            <span>{t("marketplace.installsCount", { count: formatInstalls(entry.metadata.installs) })}</span>
                             <span>{entry.skill.source}</span>
                           </div>
                           {entry.missingDetails.length > 0 ? (
@@ -440,7 +449,7 @@ export function SkillsMarketplacePanel({
                                 : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
                             }`}
                           >
-                            {isEnabledForAgent ? "Enabled for agent" : "Enable for agent"}
+                            {isEnabledForAgent ? t("marketplace.enabledForAgent") : t("marketplace.enableForAgent")}
                           </button>
 
                           <div className="flex flex-wrap justify-end gap-2">
@@ -464,7 +473,7 @@ export function SkillsMarketplacePanel({
                                 className="inline-flex items-center gap-1 rounded border border-rose-500/25 bg-rose-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 disabled:cursor-not-allowed disabled:opacity-45"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                                Remove
+                                {t("marketplace.remove")}
                               </button>
                             ) : null}
 
@@ -473,7 +482,7 @@ export function SkillsMarketplacePanel({
                               onClick={() => setDetailSkillKey(entry.skill.skillKey)}
                               className="rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10"
                             >
-                              Details
+                              {t("marketplace.details")}
                             </button>
                           </div>
                         </div>
@@ -491,7 +500,7 @@ export function SkillsMarketplacePanel({
           <div className="flex items-start justify-between border-b border-cyan-500/10 px-4 py-3">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                Skill detail
+                {t("marketplace.skillDetail")}
               </div>
               <div className="mt-1 font-mono text-[14px] font-semibold text-white/90">
                 {detailEntry.skill.name}
@@ -501,7 +510,7 @@ export function SkillsMarketplacePanel({
               type="button"
               onClick={() => setDetailSkillKey(null)}
               className="rounded border border-white/10 bg-white/5 p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-              aria-label="Close marketplace detail"
+              aria-label={t("marketplace.closeDetail")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -519,21 +528,21 @@ export function SkillsMarketplacePanel({
                 <span
                   className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] ${READINESS_CLASSES[detailEntry.readiness]}`}
                 >
-                  {READINESS_LABELS[detailEntry.readiness]}
+                  {readinessLabels[detailEntry.readiness]}
                 </span>
               </div>
               <div className="mt-3 font-mono text-[11px] text-white/75">{detailEntry.metadata.tagline}</div>
               <div className="mt-3 grid grid-cols-3 gap-2 font-mono text-[10px] text-white/55">
                 <div className="rounded border border-white/8 bg-black/30 px-2 py-2">
-                  <div className="text-white/35">Rating</div>
+                  <div className="text-white/35">{t("marketplace.rating")}</div>
                   <div className="mt-1 text-white/90">{formatRating(detailEntry.metadata.rating)}</div>
                 </div>
                 <div className="rounded border border-white/8 bg-black/30 px-2 py-2">
-                  <div className="text-white/35">Installs</div>
+                  <div className="text-white/35">{t("marketplace.installs")}</div>
                   <div className="mt-1 text-white/90">{formatInstalls(detailEntry.metadata.installs)}</div>
                 </div>
                 <div className="rounded border border-white/8 bg-black/30 px-2 py-2">
-                  <div className="text-white/35">Source</div>
+                  <div className="text-white/35">{t("marketplace.source")}</div>
                   <div className="mt-1 text-white/90">{detailEntry.skill.source}</div>
                 </div>
               </div>
@@ -541,7 +550,7 @@ export function SkillsMarketplacePanel({
 
             <div className="mt-4">
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                Capabilities
+                {t("marketplace.capabilities")}
               </div>
               <div className="mt-2 flex flex-col gap-2">
                 {detailEntry.metadata.capabilities.map((capability) => (
@@ -558,7 +567,7 @@ export function SkillsMarketplacePanel({
             {detailEntry.missingDetails.length > 0 ? (
               <div className="mt-4">
                 <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                  Setup notes
+                  {t("marketplace.setupNotes")}
                 </div>
                 <div className="mt-2 flex flex-col gap-2">
                   {detailEntry.missingDetails.map((line) => (
@@ -574,8 +583,7 @@ export function SkillsMarketplacePanel({
             ) : null}
 
             <div className="mt-4 rounded border border-cyan-500/15 bg-cyan-500/10 px-3 py-3 font-mono text-[10px] text-cyan-100">
-              Gateway setup changes apply to every agent. Agent enablement still depends on the selected
-              agent&apos;s allowlist.
+              {t("marketplace.gatewaySetupHint")}
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -587,7 +595,7 @@ export function SkillsMarketplacePanel({
                   className="inline-flex items-center gap-1 rounded border border-cyan-500/25 bg-cyan-500/10 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Install dependencies
+                  {t("marketplace.installDependencies")}
                 </button>
               ) : null}
               {detailEntry.readiness === "disabled-globally" ? (
@@ -600,7 +608,7 @@ export function SkillsMarketplacePanel({
                   className="inline-flex items-center gap-1 rounded border border-cyan-500/25 bg-cyan-500/10 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Settings2 className="h-3.5 w-3.5" />
-                  Enable for gateway
+                  {t("marketplace.enableForGateway")}
                 </button>
               ) : null}
               <button
@@ -614,7 +622,7 @@ export function SkillsMarketplacePanel({
                 className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <Settings2 className="h-3.5 w-3.5" />
-                Manage in settings
+                {t("marketplace.manageInSettings")}
               </button>
               {detailEntry.skill.homepage ? (
                 <a
@@ -624,7 +632,7 @@ export function SkillsMarketplacePanel({
                   className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Homepage
+                  {t("marketplace.homepage")}
                 </a>
               ) : null}
             </div>

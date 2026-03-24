@@ -164,6 +164,34 @@ Common environment variables:
 
 See [`.env.example`](.env.example) for the full local development template.
 
+## Internationalization (zh/en)
+
+Claw3D now uses a global i18n provider at `src/lib/i18n.tsx`, mounted in `src/app/layout.tsx`.
+
+- Supported locales: `zh` and `en`
+- Global storage key: `locale` (legacy `office-locale` is still read for migration compatibility)
+- Global APIs:
+  - `useI18n()` -> `{ locale, setLocale, t }`
+  - `LanguageSwitcher` for a basic locale selector
+  - `I18nProvider` (already mounted globally; do not re-wrap page-level trees unless needed for isolation)
+
+Recommended usage in components:
+
+```tsx
+import { useI18n } from "@/lib/i18n";
+
+export function Example() {
+  const { t } = useI18n();
+  return <span>{t("office.send")}</span>;
+}
+```
+
+Translation key conventions:
+
+- Use domain prefixes (for example: `office.*`, `chat.*`, `artifact.*`, `common.*`)
+- Prefer semantic keys over UI position keys (good: `chat.uploadFailed`, bad: `button1Text`)
+- Keep interpolation explicit via params (for example: `t("step.toolCalls", { count })`)
+
 ## Scripts
 
 - `npm run dev` starts the Studio dev server.

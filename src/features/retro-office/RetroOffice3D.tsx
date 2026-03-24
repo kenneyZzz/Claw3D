@@ -198,6 +198,7 @@ import {
   WeatherOverlay as WeatherAmbientOverlay,
 } from '@/features/retro-office/systems/visualSystems';
 import type { OfficeCleaningCue } from '@/lib/office/janitorReset';
+import { LanguageSwitcher } from '@/lib/i18n';
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
 type RenderAgentUiSnapshot = Pick<RenderAgent, 'state' | 'status'>;
@@ -6092,6 +6093,8 @@ export function RetroOffice3D({
       {/* Toolbar — top right. */}
       {!immersiveOverlayActive ? (
         <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+          {/* 语言切换. */}
+          <LanguageSwitcher />
           {/* New Idea 7: Heatmap toggle. */}
           <button
             onClick={() => setHeatmapMode((p) => !p)}

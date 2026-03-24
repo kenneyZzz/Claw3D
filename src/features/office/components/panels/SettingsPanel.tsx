@@ -1,6 +1,7 @@
 "use client";
 
 import { CURATED_ELEVENLABS_VOICES } from "@/lib/voiceReply/catalog";
+import { useI18n } from "@/lib/i18n";
 
 type SettingsPanelProps = {
   gatewayStatus?: string;
@@ -37,10 +38,17 @@ export function SettingsPanel({
   onVoiceRepliesSpeedChange,
   onVoiceRepliesPreview,
 }: SettingsPanelProps) {
+  const { t } = useI18n();
   const normalizedGatewayUrl = gatewayUrl?.trim() ?? "";
-  const gatewayStateLabel = gatewayStatus
-    ? gatewayStatus.charAt(0).toUpperCase() + gatewayStatus.slice(1)
-    : "Unknown";
+  const gatewayStateLabel = !gatewayStatus
+    ? t("settings.unknown")
+    : gatewayStatus === "connected"
+      ? t("settings.gatewayState.connected")
+      : gatewayStatus === "connecting"
+        ? t("settings.gatewayState.connecting")
+        : gatewayStatus === "disconnected"
+          ? t("settings.gatewayState.disconnected")
+          : t("settings.unknown");
   const gatewayDisconnectDisabled = gatewayStatus !== "connected";
 
   return (
@@ -48,13 +56,13 @@ export function SettingsPanel({
       <div className="rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Studio title</div>
+            <div className="text-[11px] font-medium text-white">{t("settings.studioTitle")}</div>
             <div className="mt-1 text-[10px] text-white/75">
-              Customize the banner shown at the top of the office.
+              {t("settings.studioTitleDesc")}
             </div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
-            {officeTitleLoaded ? "Ready" : "Loading"}
+            {officeTitleLoaded ? t("settings.ready") : t("settings.loading")}
           </span>
         </div>
         <input
@@ -63,19 +71,19 @@ export function SettingsPanel({
           maxLength={48}
           disabled={!officeTitleLoaded}
           onChange={(event) => onOfficeTitleChange(event.target.value)}
-          placeholder="Luke Headquarters"
+          placeholder={t("settings.officeTitlePlaceholder")}
           className="mt-3 w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="mt-2 text-[10px] text-white/50">
-          Used in the office scene header.
+          {t("settings.officeTitleHint")}
         </div>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Gateway</div>
+            <div className="text-[11px] font-medium text-white">{t("settings.gateway")}</div>
             <div className="mt-1 text-[10px] text-white/75">
-              Current studio connection and endpoint details.
+              {t("settings.gatewayDesc")}
             </div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
@@ -83,11 +91,11 @@ export function SettingsPanel({
           </span>
         </div>
         <div className="mt-3 rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 font-mono text-[10px] text-cyan-100/80">
-          {normalizedGatewayUrl || "No gateway URL configured."}
+          {normalizedGatewayUrl || t("settings.noGatewayUrl")}
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="text-[10px] text-white/60">
-            Disconnecting returns you to the gateway connect screen.
+            {t("settings.disconnectHint")}
           </div>
           <button
             type="button"
@@ -95,16 +103,16 @@ export function SettingsPanel({
             disabled={gatewayDisconnectDisabled}
             className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Disconnect gateway
+            {t("settings.disconnectGateway")}
           </button>
         </div>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Onboarding</div>
+            <div className="text-[11px] font-medium text-white">{t("settings.onboarding")}</div>
             <div className="mt-1 text-[10px] text-white/75">
-              Re-open the onboarding wizard to test the new-user flow.
+              {t("settings.onboardingDesc")}
             </div>
           </div>
           <button
@@ -112,7 +120,7 @@ export function SettingsPanel({
             onClick={() => onOpenOnboarding?.()}
             className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-100 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
           >
-            Launch wizard
+            {t("settings.launchWizard")}
           </button>
         </div>
       </div>
@@ -120,9 +128,7 @@ export function SettingsPanel({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            role="switch"
-            aria-label="Voice replies"
-            aria-checked={voiceRepliesEnabled}
+            aria-label={t("settings.voiceReplies")}
             className={`ui-switch self-center ${voiceRepliesEnabled ? "ui-switch--on" : ""}`}
             onClick={() => onVoiceRepliesToggle(!voiceRepliesEnabled)}
             disabled={!voiceRepliesLoaded}
@@ -130,20 +136,22 @@ export function SettingsPanel({
             <span className="ui-switch-thumb" />
           </button>
           <div className="flex flex-col">
-            <span className="text-[11px] font-medium text-white">Voice replies</span>
+            <span className="text-[11px] font-medium text-white">{t("settings.voiceReplies")}</span>
             <span className="text-[10px] text-white/80">
-              Play finalized assistant replies with a natural voice.
+              {t("settings.voiceRepliesDesc")}
             </span>
           </div>
         </div>
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
-          {voiceRepliesLoaded ? (voiceRepliesEnabled ? "On" : "Off") : "Loading"}
+          {voiceRepliesLoaded
+            ? (voiceRepliesEnabled ? t("settings.on") : t("settings.off"))
+            : t("settings.loading")}
         </span>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
-        <div className="text-[11px] font-medium text-white">Voice</div>
+        <div className="text-[11px] font-medium text-white">{t("settings.voice")}</div>
         <div className="mt-1 text-[10px] text-white/75">
-          Choose the voice used for spoken agent replies.
+          {t("settings.voiceDesc")}
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {CURATED_ELEVENLABS_VOICES.map((voice) => {
@@ -173,9 +181,9 @@ export function SettingsPanel({
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Speed</div>
+            <div className="text-[11px] font-medium text-white">{t("settings.speed")}</div>
             <div className="mt-1 text-[10px] text-white/75">
-              Adjust how fast the selected voice speaks.
+              {t("settings.speedDesc")}
             </div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
@@ -192,11 +200,12 @@ export function SettingsPanel({
           onChange={(event) =>
             onVoiceRepliesSpeedChange(Number.parseFloat(event.target.value))
           }
+          aria-label={t("settings.speed")}
           className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-cyan-500/15 accent-cyan-400"
         />
         <div className="mt-1 flex items-center justify-between text-[10px] text-white/45">
-          <span>Slower</span>
-          <span>Faster</span>
+          <span>{t("settings.slower")}</span>
+          <span>{t("settings.faster")}</span>
         </div>
       </div>
     </div>

@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/lib/i18n";
 
 import type { AgentState } from "@/features/agents/state/store";
 
-const formatRelativeTime = (timestampMs: number | null) => {
-  if (!timestampMs) return "No output yet";
+const formatRelativeTime = (timestampMs: number | null, t: (key: string, params?: Record<string, string | number>) => string) => {
+  if (!timestampMs) return t("inbox.noOutputYet");
   const deltaMs = Date.now() - timestampMs;
-  if (deltaMs < 60_000) return "Just now";
-  if (deltaMs < 3_600_000) return `${Math.max(1, Math.floor(deltaMs / 60_000))}m ago`;
-  if (deltaMs < 86_400_000) return `${Math.max(1, Math.floor(deltaMs / 3_600_000))}h ago`;
-  return `${Math.max(1, Math.floor(deltaMs / 86_400_000))}d ago`;
+  if (deltaMs < 60_000) return t("inbox.justNow");
+  if (deltaMs < 3_600_000) return t("inbox.minutesAgo", { count: Math.max(1, Math.floor(deltaMs / 60_000)) });
+  if (deltaMs < 86_400_000) return t("inbox.hoursAgo", { count: Math.max(1, Math.floor(deltaMs / 3_600_000)) });
+  return t("inbox.daysAgo", { count: Math.max(1, Math.floor(deltaMs / 86_400_000)) });
 };
 
 export function InboxPanel({
@@ -20,6 +21,7 @@ export function InboxPanel({
   agents: AgentState[];
   onSelectAgent: (agentId: string) => void;
 }) {
+  const { t } = useI18n();
   const sortedAgents = useMemo(
     () =>
       [...agents].sort(
@@ -34,21 +36,21 @@ export function InboxPanel({
     <section className="flex h-full min-h-0 flex-col">
       <div className="border-b border-cyan-500/10 px-4 py-3">
         <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-          Results Center
+          {t("inbox.title")}
         </div>
         <div className="mt-1 font-mono text-[11px] text-white/40">
-          Latest assistant output from every desk.
+          {t("inbox.subtitle")}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {sortedAgents.length === 0 ? (
           <div className="px-2 py-6 font-mono text-[11px] text-white/35">
-            No agents are connected yet.
+            {t("inbox.noAgentsConnected")}
           </div>
         ) : (
           sortedAgents.map((agent) => {
-            const preview = agent.latestPreview?.trim() || "No completed assistant output yet.";
+            const preview = agent.latestPreview?.trim() || t("inbox.noCompletedOutputYet");
             const isRunning = agent.status === "running";
             return (
               <button
@@ -68,7 +70,7 @@ export function InboxPanel({
                   </span>
                   {agent.hasUnseenActivity ? (
                     <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-300">
-                      New
+                      {t("inbox.new")}
                     </span>
                   ) : null}
                 </div>
@@ -76,7 +78,7 @@ export function InboxPanel({
                   {preview}
                 </div>
                 <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  {formatRelativeTime(agent.lastAssistantMessageAt)}
+                  {formatRelativeTime(agent.lastAssistantMessageAt, t)}
                 </div>
               </button>
             );

@@ -8,6 +8,7 @@ import {
   WALK_ANIM_SPEED,
 } from "@/features/retro-office/core/constants";
 import { toWorld } from "@/features/retro-office/core/geometry";
+import { formatSpeechBubbleText } from "@/features/retro-office/core/speechBubbleText";
 import type { JanitorActor, RenderAgent } from "@/features/retro-office/core/types";
 import { AgentModelProps } from "@/features/retro-office/objects/types";
 
@@ -519,13 +520,13 @@ export const AgentModel = memo(function AgentModel({
         ? "error"
         : "...";
   const activeSpeechBubble = showSpeech && Boolean(speechText?.trim());
+  const MAX_SPEECH_LINES = 3;
   const normalizedSpeechBubbleText = activeSpeechBubble
     ? resolvedSpeechText.replace(/\s+/g, " ").trim()
     : resolvedSpeechText;
-  const speechBubbleDisplayText = normalizedSpeechBubbleText;
-  const speechBubbleTextLength = speechBubbleDisplayText.length;
+  const rawSpeechTextLength = normalizedSpeechBubbleText.length;
   const speechBubbleWidth = activeSpeechBubble
-    ? Math.min(4.6, Math.max(1.8, 1.55 + speechBubbleTextLength * 0.018))
+    ? Math.min(4.6, Math.max(1.8, 1.55 + Math.min(rawSpeechTextLength, 120) * 0.018))
     : 0.36;
   const speechBubblePaddingX = activeSpeechBubble ? 0.34 : 0.06;
   const speechBubblePaddingY = activeSpeechBubble ? 0.3 : 0.06;
@@ -534,14 +535,18 @@ export const AgentModel = memo(function AgentModel({
     speechBubbleWidth - speechBubblePaddingX,
   );
   const estimatedSpeechCharsPerLine = activeSpeechBubble
-    ? Math.max(10, Math.floor(speechBubbleMaxWidth * 7))
+    ? Math.max(8, Math.floor(speechBubbleMaxWidth * 5.6))
     : 8;
+  const formattedSpeechBubble = formatSpeechBubbleText({
+    text: normalizedSpeechBubbleText,
+    maxCharsPerLine: estimatedSpeechCharsPerLine,
+    maxLines: MAX_SPEECH_LINES,
+  });
+  const speechBubbleDisplayText = formattedSpeechBubble.text;
   const estimatedSpeechLines = activeSpeechBubble
-    ? Math.max(
-        1,
-        Math.ceil(speechBubbleTextLength / estimatedSpeechCharsPerLine),
-      )
+    ? Math.min(MAX_SPEECH_LINES, Math.max(1, formattedSpeechBubble.lines.length))
     : 1;
+  const speechBubbleTextLength = Array.from(speechBubbleDisplayText).length;
   const speechBubbleHeight = activeSpeechBubble
     ? Math.max(0.72, estimatedSpeechLines * 0.26 + speechBubblePaddingY)
     : 0.2;
