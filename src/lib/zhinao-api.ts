@@ -1,3 +1,5 @@
+import { randomUUID } from "@/lib/uuid";
+
 // export const ZHINAO_API_HOST = "http://172.16.8.149:88";
 export const ZHINAO_API_HOST = "http://192.168.0.113:88";
 export const ZHINAO_API_BASE = `${ZHINAO_API_HOST}/api`;
@@ -27,4 +29,8 @@ export function getZhinaoUserId(): string | null {
 
 export function getZhinaoAuthCode(): string {
   return _cachedAuthCode || DEFAULT_AUTH_CODE;
+}
+
+export function getZhinaoClientId(): string {
+  return randomUUID();
 }

@@ -1922,7 +1922,7 @@ export function RetroOffice3D({
   monitorAgentId = null,
   monitorByAgentId = {},
   githubSkill = null,
-  officeTitle = 'Luke Headquarters',
+  officeTitle = '数字办公室',
   officeTitleLoaded = false,
   voiceRepliesEnabled = false,
   voiceRepliesVoiceId = null,
@@ -2368,7 +2368,7 @@ export function RetroOffice3D({
           const renderAgent = renderAgentUiById[agent.id];
           acc[agent.id] = {
             isError:
-              renderAgent?.status === 'error' || agent.status === 'error',
+              renderAgent?.status === 'error' || agent?.status === 'error',
             working:
               renderAgent?.state === 'sitting' ||
               ['working', 'running'].includes(renderAgent?.status ?? '') ||

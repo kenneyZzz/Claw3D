@@ -651,8 +651,9 @@ type OfficeScreenProps = {
   showOpenClawConsole?: boolean;
 };
 
+// OpenClaw 事件控制台 默认不展示
 export function OfficeScreen({
-  showOpenClawConsole = true,
+  showOpenClawConsole = false,
 }: OfficeScreenProps) {
   const { t } = useI18n();
   const searchParams = useSearchParams();

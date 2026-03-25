@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentStoreSeed, AgentState } from "@/features/agents/state/store";
 import { createSchedulerAgentvisualSocket } from "./websocket";
+import { getZhinaoClientId } from "@/lib/zhinao-api";
 
 type ZhinaoAgentPresenceStatus = "idle" | "working";
 
@@ -103,7 +104,8 @@ export function useZhinaoAgents({
   }, [hydrateAgents, dispatch, setLoading, setError]);
 
   useEffect(() => {
-    const socket = createSchedulerAgentvisualSocket();
+    const clientId = getZhinaoClientId();
+    const socket = createSchedulerAgentvisualSocket({ 'X-Client-Id': clientId });
 
     const handleAgentList = (rawAgents: RawActivityAgent[]) => {
       const newActivities: ZhinaoAgentActivity[] = rawAgents.map((a) => ({

@@ -160,7 +160,7 @@ describe("studio settings normalization", () => {
       title: "Team Orbit",
     });
     expect(normalized.office.bad).toEqual({
-      title: "Luke Headquarters",
+      title: "数字办公司",
     });
   });
 
@@ -168,7 +168,7 @@ describe("studio settings normalization", () => {
     const current = normalizeStudioSettings({
       office: {
         "ws://localhost:18789": {
-          title: "Luke Headquarters",
+          title: "Digital Office",
         },
       },
     });
