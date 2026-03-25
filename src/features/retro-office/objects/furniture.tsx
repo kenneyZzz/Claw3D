@@ -35,6 +35,12 @@ export const FURNITURE_GLB: Record<string, string> = {
   computer: "/office-assets/models/furniture/computerScreen.glb",
   lamp: "/office-assets/models/furniture/lampRoundFloor.glb",
   printer: "/office-assets/models/furniture/kitchenCoffeeMachine.glb",
+  chair_v2: "/office-assets/models/furniture/chair.glb",
+  desk_v2: "/office-assets/models/furniture/desk1.glb",
+  curtain: "/office-assets/models/furniture/curtain.glb",
+  desk2: "/office-assets/models/furniture/desk2.glb",
+  projector: "/office-assets/models/furniture/projector.glb",
+  water_dispenser: "/office-assets/models/furniture/water dispenser.glb",
 };
 
 export const FURNITURE_SCALE: Record<string, [number, number, number]> = {
@@ -57,6 +63,12 @@ export const FURNITURE_SCALE: Record<string, [number, number, number]> = {
   computer: [1.1, 1.1, 1.1],
   lamp: [1.2, 1.2, 1.2],
   printer: [1, 1.2, 0.8],
+  chair_v2: [1.2, 1.2, 1.2],
+  desk_v2: [1.5, 1.5, 1.5],
+  curtain: [1.5, 1.5, 1.5],
+  desk2: [1.5, 1.5, 1.5],
+  projector: [1, 1, 1],
+  water_dispenser: [1, 1.2, 1],
 };
 
 export const FURNITURE_Y_OFFSET: Record<string, number> = {
@@ -83,6 +95,12 @@ export const FURNITURE_TINT: Record<string, string | null> = {
   plant: null,
   lamp: "#c8a060",
   printer: "#404858",
+  chair_v2: null,
+  desk_v2: null,
+  curtain: null,
+  desk2: null,
+  projector: null,
+  water_dispenser: null,
 };
 
 const SHADOW_CASTING_FURNITURE_TYPES = new Set([
@@ -301,6 +319,12 @@ export function FurnitureModel({
   const pivotX = width * SCALE * 0.5;
   const pivotZ = height * SCALE * 0.5;
 
+  const centerOffset = useMemo<[number, number, number]>(() => {
+    const box = new THREE.Box3().setFromObject(cloned);
+    const c = box.getCenter(new THREE.Vector3());
+    return [-c.x, 0, -c.z];
+  }, [cloned]);
+
   useEffect(() => {
     const highlightActive = isSelected || (isHovered && editMode);
     cloned.traverse((child) => {
@@ -361,7 +385,9 @@ export function FurnitureModel({
     >
       <group position={[pivotX, 0, pivotZ]} rotation={[0, rotY, 0]}>
         <group position={[-pivotX, 0, -pivotZ]} scale={scale}>
-          <primitive object={cloned} />
+          <group position={centerOffset}>
+            <primitive object={cloned} />
+          </group>
         </group>
       </group>
     </group>
@@ -391,9 +417,17 @@ export function PlacementGhost({
   const scale = FURNITURE_SCALE[itemType] ?? [1, 1, 1];
   const rotY = FURNITURE_ROTATION[itemType] ?? 0;
 
+  const centerOffset = useMemo<[number, number, number]>(() => {
+    const box = new THREE.Box3().setFromObject(cloned);
+    const c = box.getCenter(new THREE.Vector3());
+    return [-c.x, 0, -c.z];
+  }, [cloned]);
+
   return (
     <group position={position} rotation={[0, rotY, 0]} scale={scale}>
-      <primitive object={cloned} />
+      <group position={centerOffset}>
+        <primitive object={cloned} />
+      </group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <planeGeometry args={[0.8, 0.8]} />
         <meshBasicMaterial color="#fbbf24" transparent opacity={0.25} />

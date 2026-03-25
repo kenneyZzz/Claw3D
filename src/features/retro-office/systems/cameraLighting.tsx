@@ -13,19 +13,32 @@ export type CameraPreset = {
   zoom?: number;
 };
 
+const ISO_D = 20;
+const ISO_H = Math.PI / 4;
+const ISO_V = Math.atan(1 / Math.SQRT2);
+const isoOffset = (
+  tx: number,
+  tz: number,
+  d = ISO_D,
+): [number, number, number] => [
+  tx + d * Math.cos(ISO_V) * Math.sin(ISO_H),
+  d * Math.sin(ISO_V),
+  tz + d * Math.cos(ISO_V) * Math.cos(ISO_H),
+];
+
 export const CAMERA_PRESETS = {
   overview: {
-    pos: [12, 12, 12],
+    pos: isoOffset(0, 0),
     target: [0, 0, 0],
     zoom: 55,
   },
   frontDesk: {
-    pos: [-2, 8, 4],
+    pos: isoOffset(-3, -2, 14),
     target: [-3, 0, -2],
     zoom: 70,
   },
   lounge: {
-    pos: [7, 7, -5],
+    pos: isoOffset(5, -3, 14),
     target: [5, 0, -3],
     zoom: 62,
   },

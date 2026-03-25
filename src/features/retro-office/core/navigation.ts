@@ -14,6 +14,8 @@ import type {
   GymWorkoutLocation,
   QaLabStationLocation,
 } from "@/features/retro-office/core/types";
+
+export type NavCollisionBox = { x: number; y: number; w: number; h: number };
 export {
   GYM_DEFAULT_TARGET,
   resolveGymRoute,
@@ -85,7 +87,10 @@ export type NavGrid = Uint8Array;
 const itemBlocksNavigation = (type: string): boolean =>
   ITEM_METADATA[type]?.blocksNavigation ?? false;
 
-export function buildNavGrid(furniture: FurnitureItem[]): NavGrid {
+export function buildNavGrid(
+  furniture: FurnitureItem[],
+  modelColliders?: NavCollisionBox[],
+): NavGrid {
   const grid = new Uint8Array(GRID_COLS * GRID_ROWS);
   const pad = GRID_CELL * 0.6;
   for (const item of furniture) {
@@ -106,6 +111,25 @@ export function buildNavGrid(furniture: FurnitureItem[]): NavGrid {
     }
   }
 
+  if (modelColliders) {
+    const modelPad = GRID_CELL * 0.3;
+    for (const box of modelColliders) {
+      const x1 = box.x - modelPad;
+      const y1 = box.y - modelPad;
+      const x2 = box.x + box.w + modelPad;
+      const y2 = box.y + box.h + modelPad;
+      const c1 = Math.max(0, Math.floor(x1 / GRID_CELL));
+      const c2 = Math.min(GRID_COLS - 1, Math.floor(x2 / GRID_CELL));
+      const r1 = Math.max(0, Math.floor(y1 / GRID_CELL));
+      const r2 = Math.min(GRID_ROWS - 1, Math.floor(y2 / GRID_CELL));
+      for (let row = r1; row <= r2; row += 1) {
+        for (let column = c1; column <= c2; column += 1) {
+          grid[row * GRID_COLS + column] = 1;
+        }
+      }
+    }
+  }
+
   for (let column = 0; column < GRID_COLS; column += 1) {
     grid[column] = 1;
     grid[(GRID_ROWS - 1) * GRID_COLS + column] = 1;
@@ -115,6 +139,21 @@ export function buildNavGrid(furniture: FurnitureItem[]): NavGrid {
     grid[row * GRID_COLS + GRID_COLS - 1] = 1;
   }
   return grid;
+}
+
+export const GRID_CELL_SIZE = GRID_CELL;
+export const NAV_GRID_COLS = GRID_COLS;
+export const NAV_GRID_ROWS = GRID_ROWS;
+
+export function isNavCellBlocked(
+  cx: number,
+  cy: number,
+  grid: NavGrid,
+): boolean {
+  const col = Math.floor(cx / GRID_CELL);
+  const row = Math.floor(cy / GRID_CELL);
+  if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return true;
+  return grid[row * GRID_COLS + col] === 1;
 }
 
 export function astar(

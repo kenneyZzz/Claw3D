@@ -20,6 +20,7 @@ export const AgentModel = memo(function AgentModel({
   appearance,
   agentsRef,
   agentLookupRef,
+  floorY = 0,
   onHover,
   onUnhover,
   onClick,
@@ -68,7 +69,7 @@ export const AgentModel = memo(function AgentModel({
     if (!agent || !groupRef.current) return;
 
     const [wx, , wz] = toWorld(agent.x, agent.y);
-    pos.current.set(wx, 0, wz);
+    pos.current.set(wx, floorY, wz);
     groupRef.current.position.lerp(pos.current, 0.15);
 
     const targetY = agent.facing;
@@ -89,7 +90,7 @@ export const AgentModel = memo(function AgentModel({
     groupRef.current.rotation.z = 0;
     groupRef.current.rotation.x =
       agent.state === "sitting"
-        ? -0.15
+        ? 0
         : isWorkout
           ? workoutStyle === "bike"
             ? 0.18
@@ -119,7 +120,7 @@ export const AgentModel = memo(function AgentModel({
       agent.state === "standing" || isWorkout || agent.pingPongUntil
         ? Math.sin(frameValue * 0.03) * 0.01
         : 0;
-    groupRef.current.position.y = bounce + breathe;
+    groupRef.current.position.y = floorY + bounce + breathe;
 
     if (leftArmRef.current) {
       leftArmRef.current.rotation.x = 0;
