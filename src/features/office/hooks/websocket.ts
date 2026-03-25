@@ -55,7 +55,7 @@ export class SchedulerWebSocket {
 
     const allParams: Record<string, string> = { ...this.params, 'X-Auth-Code': getZhinaoAuthCode() };
     const userId = getZhinaoUserId();
-    if (userId) allParams.userId = userId;
+    if (userId) allParams['X-User-Id'] = userId;
     const qs = new URLSearchParams(allParams).toString();
     const connectionUrl = qs ? `${this.url}?${qs}` : this.url;
 
