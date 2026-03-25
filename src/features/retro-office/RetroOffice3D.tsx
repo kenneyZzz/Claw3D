@@ -91,6 +91,7 @@ import {
   snap,
   toWorld,
 } from '@/features/retro-office/core/geometry';
+import { activateSceneAgent } from '@/features/retro-office/core/agentSelection';
 import {
   astar,
   buildNavGrid,
@@ -184,6 +185,7 @@ import {
   CameraAnimator as CameraPresetAnimator,
   DayNightCycle as DayNightLighting,
   FollowCamController as FollowCamSystem,
+  type CameraPreset,
 } from '@/features/retro-office/systems/cameraLighting';
 import {
   FloorRaycaster as SceneFloorRaycaster,
@@ -226,6 +228,8 @@ const SMS_CONTACT_SEED_NAMES = [
   'Gabriel',
   'Zoe',
 ] as const;
+
+const CAM_POS: [number, number, number] = [12, 12, 12];
 
 const normalizeSmsContactName = (value: string): string =>
   value.replace(/\s+/g, ' ').trim() || 'Joseph';
@@ -1943,6 +1947,7 @@ export function RetroOffice3D({
   onStandupArrivalsChange,
   onStandupStartRequested,
   onMonitorSelect,
+  onAgentSelect,
   onAgentEdit,
   onDeskAssignmentChange,
   onDeskAssignmentsReset,
@@ -2007,6 +2012,7 @@ export function RetroOffice3D({
   onStandupArrivalsChange?: (arrivedAgentIds: string[]) => void;
   onStandupStartRequested?: () => void;
   onMonitorSelect?: (agentId: string | null) => void;
+  onAgentSelect?: (agentId: string) => void;
   onAgentEdit?: (agentId: string) => void;
   onDeskAssignmentChange?: (deskUid: string, agentId: string | null) => void;
   onDeskAssignmentsReset?: (deskUids: string[]) => void;
@@ -2116,11 +2122,7 @@ export function RetroOffice3D({
     standupMeeting?.phase === 'gathering' ||
     standupMeeting?.phase === 'in_progress';
   // New Idea 2: camera preset target ref (shared into Canvas).
-  const cameraPresetRef = useRef<{
-    pos: [number, number, number];
-    target: [number, number, number];
-    zoom?: number;
-  } | null>(null);
+  const cameraPresetRef = useRef<CameraPreset | null>(null);
   // New Idea 7: heatmap mode.
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [trailMode, setTrailMode] = useState(false);
@@ -2401,10 +2403,30 @@ export function RetroOffice3D({
       const agent = renderAgentLookupRef.current.get(agentId);
       if (!agent || !orbitRef.current) return;
       const [wx, , wz] = toWorld(agent.x, agent.y);
-      orbitRef.current.target.set(wx, 0, wz);
-      orbitRef.current.update();
+      const orbitCamera = orbitRef.current.object as
+        | THREE.Camera
+        | undefined;
+      const currentPosition: [number, number, number] = orbitCamera
+        ? [
+            orbitCamera.position.x,
+            orbitCamera.position.y,
+            orbitCamera.position.z,
+          ]
+        : CAM_POS;
+      const currentTarget: [number, number, number] = [
+        orbitRef.current.target.x,
+        orbitRef.current.target.y,
+        orbitRef.current.target.z,
+      ];
+      cameraPresetRef.current = activateSceneAgent({
+        agentId,
+        cameraPosition: currentPosition,
+        currentTarget,
+        nextTarget: [wx, 0, wz],
+        onSelectAgent: onAgentSelect,
+      });
     },
-    [renderAgentLookupRef],
+    [cameraPresetRef, onAgentSelect, renderAgentLookupRef],
   );
   const handleAgentContextMenu = useCallback(
     (agentId: string, x: number, y: number) => {
@@ -4461,9 +4483,6 @@ export function RetroOffice3D({
     const timer = setTimeout(() => setSpotlightAgentId(null), 2000);
     return () => clearTimeout(timer);
   }, [spotlightAgentId]);
-
-  // Camera constants.
-  const CAM_POS: [number, number, number] = [12, 12, 12];
 
   return (
     <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden">
