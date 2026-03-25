@@ -19,6 +19,11 @@ export const toWorld = (cx: number, cy: number): [number, number, number] => [
   cy * SCALE - CANVAS_H * SCALE * 0.5,
 ];
 
+export const fromWorld = (wx: number, wz: number): { cx: number; cy: number } => ({
+  cx: (wx + CANVAS_W * SCALE * 0.5) / SCALE,
+  cy: (wz + CANVAS_H * SCALE * 0.5) / SCALE,
+});
+
 export const snap = (value: number) =>
   Math.round(value / SNAP_GRID) * SNAP_GRID;
 
@@ -82,6 +87,10 @@ export const ITEM_FOOTPRINT: Record<string, [number, number]> = {
   trash: [20, 20],
   mug: [14, 14],
   clock: [20, 20],
+  curtain: [80, 10],
+  desk2: [100, 55],
+  projector: [30, 30],
+  water_dispenser: [30, 30],
 };
 
 export const getItemBaseSize = (item: FurnitureItem) => {
@@ -169,6 +178,12 @@ export const ITEM_METADATA: Record<string, { blocksNavigation: boolean }> = {
   trash:           { blocksNavigation: false }, // small bin
   clock:           { blocksNavigation: false }, // wall-mounted
   mug:             { blocksNavigation: false }, // desk item
+  chair_v2:        { blocksNavigation: false },
+  desk_v2:         { blocksNavigation: false },
+  curtain:         { blocksNavigation: false }, // wall-mounted decoration
+  desk2:           { blocksNavigation: true  },
+  projector:       { blocksNavigation: false }, // elevated / ceiling-mounted
+  water_dispenser: { blocksNavigation: true  },
 };
 
 export const FURNITURE_ROTATION: Record<string, number> = {

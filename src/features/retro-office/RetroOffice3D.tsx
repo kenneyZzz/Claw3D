@@ -101,6 +101,7 @@ import {
   getMeetingSeatLocations,
   getQaLabStations,
   GYM_DEFAULT_TARGET,
+  isNavCellBlocked,
   MEETING_OVERFLOW_LOCATIONS,
   QA_LAB_DEFAULT_TARGET,
   resolveDeskIndexForItem,
@@ -178,8 +179,9 @@ import {
 } from '@/features/retro-office/objects/primitives';
 import {
   FloorAndWalls as SceneFloorAndWalls,
-  WallPictures as SceneWallPictures,
+  OfficeModel as SceneOfficeModel,
 } from '@/features/retro-office/scene/environment';
+import type { CollisionBox, ModelBounds } from '@/features/retro-office/scene/environment';
 import {
   CAMERA_PRESETS as CAMERA_PRESET_MAP,
   CameraAnimator as CameraPresetAnimator,
@@ -228,8 +230,6 @@ const SMS_CONTACT_SEED_NAMES = [
   'Gabriel',
   'Zoe',
 ] as const;
-
-const CAM_POS: [number, number, number] = [12, 12, 12];
 
 const normalizeSmsContactName = (value: string): string =>
   value.replace(/\s+/g, ' ').trim() || 'Joseph';
@@ -376,15 +376,31 @@ const PALETTE: PaletteEntry[] = [
   },
   { type: 'computer', label: 'Computer', icon: '🖥️', defaults: {} },
   { type: 'lamp', label: 'Lamp', icon: '💡', defaults: {} },
+  { type: 'chair_v2', label: 'Chair V2', icon: '💺', defaults: { facing: 0 } },
+  { type: 'desk_v2', label: 'Desk V2', icon: '🗃️', defaults: { w: 100, h: 55 } },
+  { type: 'curtain', label: 'Curtain', icon: '🪟', defaults: { w: 80, h: 10 } },
+  { type: 'desk2', label: 'Desk 2', icon: '🪵', defaults: { w: 100, h: 55 } },
+  { type: 'projector', label: 'Projector', icon: '📽️', defaults: {} },
+  { type: 'water_dispenser', label: 'Dispenser', icon: '🚰', defaults: {} },
 ];
 
 // ============================================================
 // CAMERA SETUP — sets lookAt after mount
 // ============================================================
 
+const ISO_DISTANCE = 20;
+const ISO_HORIZ_RAD = Math.PI / 4;
+const ISO_VERT_RAD = Math.atan(1 / Math.SQRT2);
+const ISO_CAM_X = ISO_DISTANCE * Math.cos(ISO_VERT_RAD) * Math.sin(ISO_HORIZ_RAD);
+const ISO_CAM_Y = ISO_DISTANCE * Math.sin(ISO_VERT_RAD);
+const ISO_CAM_Z = ISO_DISTANCE * Math.cos(ISO_VERT_RAD) * Math.cos(ISO_HORIZ_RAD);
+const ISO_CAM_POS: [number, number, number] = [ISO_CAM_X, ISO_CAM_Y, ISO_CAM_Z];
+const CAM_POS: [number, number, number] = ISO_CAM_POS;
+
 function CameraRig() {
   const { camera } = useThree();
   useEffect(() => {
+    camera.position.set(ISO_CAM_X, ISO_CAM_Y, ISO_CAM_Z);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
   }, [camera]);
@@ -503,6 +519,8 @@ function useAgentTick(
   qaHoldByAgentId: Record<string, boolean> = {},
   githubReviewByAgentId: Record<string, boolean> = {},
   standupMeeting: StandupMeeting | null = null,
+  modelCollidersRef?: React.RefObject<CollisionBox[]>,
+  modelBoundsRef?: React.RefObject<ModelBounds | null>,
 ) {
   const renderAgentsRef = useRef<RenderAgent[]>([]);
   const renderAgentLookupRef = useRef<Map<string, RenderAgent>>(new Map());
@@ -513,24 +531,45 @@ function useAgentTick(
   const nextGymRef = useRef(0);
   const nextQaRef = useRef(0);
 
-  // Nav grid is rebuilt lazily whenever the furniture array reference changes.
+  // Nav grid is rebuilt lazily whenever the furniture array reference changes
+  // or when model collision data arrives.
   const navGridRef = useRef<NavGrid | null>(null);
   const gridSourceRef = useRef<FurnitureItem[]>([]);
+  const lastColliderCountRef = useRef(0);
 
   const getNavGrid = useCallback((): NavGrid => {
     const furniture = furnitureRef.current ?? [];
-    if (navGridRef.current === null || gridSourceRef.current !== furniture) {
-      navGridRef.current = buildNavGrid(furniture);
+    const colliders = modelCollidersRef?.current;
+    const colliderCount = colliders?.length ?? 0;
+    if (
+      navGridRef.current === null ||
+      gridSourceRef.current !== furniture ||
+      lastColliderCountRef.current !== colliderCount
+    ) {
+      navGridRef.current = buildNavGrid(
+        furniture,
+        colliders && colliderCount > 0 ? colliders : undefined,
+      );
       gridSourceRef.current = furniture;
+      lastColliderCountRef.current = colliderCount;
     }
     return navGridRef.current;
-  }, [furnitureRef]);
+  }, [furnitureRef, modelCollidersRef]);
 
   const planPath = useCallback(
     (fx: number, fy: number, tx: number, ty: number) =>
       astar(fx, fy, tx, ty, getNavGrid()),
     [getNavGrid],
   );
+
+  const getActiveRoamPoints = useCallback(() => {
+    const mb = modelBoundsRef?.current;
+    if (!mb) return ROAM_POINTS;
+    return ROAM_POINTS.map((p) => ({
+      x: Math.max(mb.minCx, Math.min(mb.maxCx, p.x)),
+      y: Math.max(mb.minCy, Math.min(mb.maxCy, p.y)),
+    }));
+  }, [modelBoundsRef]);
 
   const standupActive =
     standupMeeting?.phase === 'gathering' ||
@@ -1204,8 +1243,8 @@ function useAgentTick(
             ns.qaLabStage = undefined;
             ns.qaLabStationType = undefined;
             ns.workoutStyle = undefined;
-            const r =
-              ROAM_POINTS[Math.floor(Math.random() * ROAM_POINTS.length)];
+            const roamPts = getActiveRoamPoints();
+            const r = roamPts[Math.floor(Math.random() * roamPts.length)];
             ns.targetX = r.x;
             ns.targetY = r.y;
             ns.path = planPath(existing.x, existing.y, r.x, r.y);
@@ -1213,9 +1252,14 @@ function useAgentTick(
           }
         }
       } else {
-        // New agent — spawn at a random position and plan path to first target.
-        const sx = Math.random() * 800 + 100,
-          sy = Math.random() * 500 + 100;
+        // New agent — spawn at a random position within the office model bounds.
+        const mb = modelBoundsRef?.current;
+        const spawnMinX = mb ? mb.minCx : 100;
+        const spawnMaxX = mb ? mb.maxCx : 900;
+        const spawnMinY = mb ? mb.minCy : 100;
+        const spawnMaxY = mb ? mb.maxCy : 600;
+        const sx = spawnMinX + Math.random() * (spawnMaxX - spawnMinX),
+          sy = spawnMinY + Math.random() * (spawnMaxY - spawnMinY);
         const serverRoomRoute = resolveServerRoomRoute(sx, sy);
         const smsBoothRoute = resolveSmsBoothRoute(smsBoothItem, sx, sy);
         const phoneBoothRoute = resolvePhoneBoothRoute(phoneBoothItem, sx, sy);
@@ -1476,14 +1520,27 @@ function useAgentTick(
       if (dist > speed) {
         nx = agent.x + (dx / dist) * speed;
         ny = agent.y + (dy / dist) * speed;
-        // atan2(dx, dy) gives the rotation.y angle for the direction of travel
-        // (local +Z aligns with the movement vector when rotation.y = atan2(dx, dy)).
+        const mb = modelBoundsRef?.current;
+        if (mb) {
+          nx = Math.max(mb.minCx, Math.min(mb.maxCx, nx));
+          ny = Math.max(mb.minCy, Math.min(mb.maxCy, ny));
+        }
+        if (isNavCellBlocked(nx, ny, grid)) {
+          nx = agent.x;
+          ny = agent.y;
+          npath = astar(agent.x, agent.y, agent.targetX, agent.targetY, grid);
+        }
         nf = Math.atan2(dx, dy);
         ns = 'walking';
       } else {
         // Reached current waypoint — advance or finalise.
         nx = wpX;
         ny = wpY;
+        const mb = modelBoundsRef?.current;
+        if (mb) {
+          nx = Math.max(mb.minCx, Math.min(mb.maxCx, nx));
+          ny = Math.max(mb.minCy, Math.min(mb.maxCy, ny));
+        }
         if (path.length > 1) {
           npath = path.slice(1);
           ns = 'walking';
@@ -1734,19 +1791,21 @@ function useAgentTick(
                   Math.round((f.x + off.dx * 30) / SNAP_GRID) * SNAP_GRID;
                 const ty =
                   Math.round((f.y + off.dy * 30) / SNAP_GRID) * SNAP_GRID;
+                const mbClamp = modelBoundsRef?.current;
                 const clampedX = Math.max(
-                  SNAP_GRID,
-                  Math.min(CANVAS_W - SNAP_GRID, tx),
+                  mbClamp?.minCx ?? SNAP_GRID,
+                  Math.min(mbClamp?.maxCx ?? (CANVAS_W - SNAP_GRID), tx),
                 );
                 const clampedY = Math.max(
-                  SNAP_GRID,
-                  Math.min(CANVAS_H - SNAP_GRID, ty),
+                  mbClamp?.minCy ?? SNAP_GRID,
+                  Math.min(mbClamp?.maxCy ?? (CANVAS_H - SNAP_GRID), ty),
                 );
                 target = { x: clampedX, y: clampedY };
               }
               if (!target) {
+                const roamPts = getActiveRoamPoints();
                 target =
-                  ROAM_POINTS[Math.floor(Math.random() * ROAM_POINTS.length)];
+                  roamPts[Math.floor(Math.random() * roamPts.length)];
               }
               return {
                 ...agent,
@@ -1761,6 +1820,16 @@ function useAgentTick(
             }
           }
         }
+      }
+
+      const mbFinal = modelBoundsRef?.current;
+      if (mbFinal) {
+        nx = Math.max(mbFinal.minCx, Math.min(mbFinal.maxCx, nx));
+        ny = Math.max(mbFinal.minCy, Math.min(mbFinal.maxCy, ny));
+      }
+      if (isNavCellBlocked(nx, ny, grid)) {
+        nx = agent.x;
+        ny = agent.y;
       }
 
       return {
@@ -1839,9 +1908,10 @@ function useAgentTick(
       const pushMag = Math.hypot(sx, sy);
       const norm = pushMag || 1;
       // Pick the roam point most aligned with the push direction as the escape target.
+      const roamPts = getActiveRoamPoints();
       let bestDot = -Infinity;
-      let escapeTarget = ROAM_POINTS[0];
-      for (const rp of ROAM_POINTS) {
+      let escapeTarget = roamPts[0];
+      for (const rp of roamPts) {
         const rdx = rp.x - moved[i].x,
           rdy = rp.y - moved[i].y;
         const rdist = Math.hypot(rdx, rdy) || 1;
@@ -2319,6 +2389,15 @@ export function RetroOffice3D({
     [agents, janitorActors],
   );
 
+  const modelCollidersRef = useRef<CollisionBox[]>([]);
+  const modelBoundsRef = useRef<ModelBounds | null>(null);
+  const handleOfficeCollisionReady = useCallback((boxes: CollisionBox[]) => {
+    modelCollidersRef.current = boxes;
+  }, []);
+  const handleOfficeBoundsReady = useCallback((bounds: ModelBounds) => {
+    modelBoundsRef.current = bounds;
+  }, []);
+
   const {
     renderAgentsRef,
     renderAgentLookupRef,
@@ -2341,6 +2420,8 @@ export function RetroOffice3D({
     resolvedQaHoldByAgentId,
     resolvedGithubReviewByAgentId,
     standupMeeting,
+    modelCollidersRef,
+    modelBoundsRef,
   );
   useEffect(() => {
     const syncRenderAgentUi = () => {
@@ -4485,7 +4566,7 @@ export function RetroOffice3D({
   }, [spotlightAgentId]);
 
   return (
-    <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden">
+    <div className="relative w-full h-full font-mono text-white overflow-hidden" style={{ background: "url('/office-assets/backgrounds/bgImg.png') center/cover no-repeat #1a1008" }}>
       {/* 3D Canvas — fills everything. */}
       <div
         className="absolute inset-0"
@@ -4512,7 +4593,7 @@ export function RetroOffice3D({
           dpr={[0.85, 1.5]}
           camera={{ position: CAM_POS, zoom: 55, near: 0.1, far: 100 }}
           shadows={{ type: THREE.PCFShadowMap }}
-          gl={{ antialias: true, powerPreference: 'high-performance' }}
+          gl={{ antialias: true, powerPreference: 'high-performance', alpha: true }}
           style={{
             width: '100%',
             height: '100%',
@@ -4528,7 +4609,7 @@ export function RetroOffice3D({
           <CameraRig />
           <AdaptiveDprController />
 
-          {/* Orbit / pan / zoom controls — disabled while follow cam is active or while editing furniture. */}
+          {/* Orbit / pan / zoom controls. */}
           <OrbitControls
             ref={orbitRef}
             enabled={followAgentId === null && (!editMode || spaceDown)}
@@ -4579,11 +4660,16 @@ export function RetroOffice3D({
             color="#7090ff"
           />
 
-          {/* Floor + walls — always visible, no async loading. */}
+          {/* Invisible floor plane for raycasting. */}
           <SceneFloorAndWalls />
 
-          {/* Wall pictures — procedural, no async loading. */}
-          <SceneWallPictures />
+          {/* Office environment model (replaces old procedural walls/floor). */}
+          <Suspense fallback={null}>
+            <SceneOfficeModel
+              onCollisionReady={handleOfficeCollisionReady}
+              onBoundsReady={handleOfficeBoundsReady}
+            />
+          </Suspense>
 
           {/* Environment lighting — async, wrapped in its own Suspense so floor stays visible. */}
           <Suspense fallback={null}>
@@ -5012,6 +5098,7 @@ export function RetroOffice3D({
                 }
                 agentsRef={renderAgentsRef}
                 agentLookupRef={renderAgentLookupRef}
+                floorY={modelBoundsRef.current?.floorY ?? 0}
                 onHover={isJanitor ? undefined : handleAgentHover}
                 onUnhover={isJanitor ? undefined : handleAgentUnhover}
                 onClick={isJanitor ? undefined : handleAgentClick}

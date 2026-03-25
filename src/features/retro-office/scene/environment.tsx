@@ -1,17 +1,25 @@
 "use client";
 
+import { useGLTF } from "@react-three/drei";
 import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import {
   CANVAS_H,
   CANVAS_W,
-  EAST_WING_ROOM_HEIGHT,
-  EAST_WING_ROOM_TOP_Y,
-  GYM_ROOM_WIDTH,
-  GYM_ROOM_X,
-  QA_LAB_WIDTH,
-  QA_LAB_X,
   SCALE,
 } from "@/features/retro-office/core/constants";
+import { fromWorld } from "@/features/retro-office/core/geometry";
+
+export type CollisionBox = { x: number; y: number; w: number; h: number };
+
+export type ModelBounds = {
+  minCx: number;
+  minCy: number;
+  maxCx: number;
+  maxCy: number;
+  floorY: number;
+};
 
 function FramedPicture({
   position,
@@ -53,191 +61,221 @@ function FramedPicture({
   );
 }
 
+/**
+ * Invisible floor plane kept for FloorRaycaster (pointer interaction at y=0).
+ * The visual floor is now provided by OfficeModel.
+ */
 export function FloorAndWalls() {
   const width = CANVAS_W * SCALE;
   const height = CANVAS_H * SCALE;
-  const gymZoneStart = GYM_ROOM_X * SCALE - width / 2;
-  const qaZoneStart = QA_LAB_X * SCALE - width / 2;
-  const gymZoneWidth = Math.max(0, GYM_ROOM_WIDTH * SCALE);
-  const qaZoneWidth = Math.max(0, QA_LAB_WIDTH * SCALE);
-  const gymZoneCenterX = gymZoneStart + gymZoneWidth / 2;
-  const qaZoneCenterX = qaZoneStart + qaZoneWidth / 2;
-  const roomZoneStartZ = EAST_WING_ROOM_TOP_Y * SCALE - height / 2;
-  const roomZoneHeight = EAST_WING_ROOM_HEIGHT * SCALE;
-  const roomZoneCenterZ = roomZoneStartZ + roomZoneHeight / 2;
-  const roomFloorInset = 0.08;
-  const roomZoneFloorHeight = Math.max(0, roomZoneHeight - roomFloorInset * 2);
-  const gymZoneFloorWidth = Math.max(0, gymZoneWidth - roomFloorInset * 2);
-  const qaZoneFloorWidth = Math.max(0, qaZoneWidth - roomFloorInset * 2);
-  const qaZoneStripeHeight = roomZoneFloorHeight * 0.86;
-  const qaZoneStripeWidth = qaZoneFloorWidth * 0.92;
 
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[width, height, 22, 14]} />
-        <meshLambertMaterial color="#c8a97e" />
-      </mesh>
-
-      {gymZoneFloorWidth > 0 && roomZoneFloorHeight > 0 ? (
-        <mesh
-          position={[gymZoneCenterX, 0.002, roomZoneCenterZ]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          receiveShadow
-        >
-          <planeGeometry args={[gymZoneFloorWidth, roomZoneFloorHeight]} />
-          <meshStandardMaterial
-            color="#24272d"
-            roughness={0.95}
-            metalness={0.05}
-          />
-        </mesh>
-      ) : null}
-
-      {qaZoneFloorWidth > 0 && roomZoneFloorHeight > 0 ? (
-        <>
-          <mesh
-            position={[qaZoneCenterX, 0.003, roomZoneCenterZ]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            receiveShadow
-          >
-            <planeGeometry args={[qaZoneFloorWidth, roomZoneFloorHeight]} />
-            <meshStandardMaterial
-              color="#12091d"
-              roughness={0.92}
-              metalness={0.08}
-            />
-          </mesh>
-          <mesh
-            position={[qaZoneCenterX, 0.004, roomZoneCenterZ]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            receiveShadow
-          >
-            <planeGeometry args={[qaZoneFloorWidth * 0.96, roomZoneFloorHeight * 0.88]} />
-            <meshStandardMaterial
-              color="#170d28"
-              roughness={0.86}
-              metalness={0.12}
-            />
-          </mesh>
-          {Array.from({ length: 7 }).map((_, index) => {
-            const offsetX =
-              qaZoneCenterX - qaZoneFloorWidth * 0.38 + index * (qaZoneFloorWidth / 7);
-            return (
-              <mesh
-                key={`qa-vertical-${index}`}
-                position={[offsetX, 0.006, roomZoneCenterZ]}
-                rotation={[-Math.PI / 2, 0, 0]}
-              >
-                <planeGeometry args={[0.015, qaZoneStripeHeight]} />
-                <meshBasicMaterial color="#7c3aed" transparent opacity={0.34} />
-              </mesh>
-            );
-          })}
-          {Array.from({ length: 12 }).map((_, index) => {
-            const z =
-              roomZoneCenterZ -
-              qaZoneStripeHeight / 2 +
-              index * (qaZoneStripeHeight / 11);
-            return (
-              <mesh
-                key={`qa-horizontal-${index}`}
-                position={[qaZoneCenterX, 0.006, z]}
-                rotation={[-Math.PI / 2, 0, 0]}
-              >
-                <planeGeometry args={[qaZoneStripeWidth, 0.012]} />
-                <meshBasicMaterial
-                  color="#38bdf8"
-                  transparent
-                  opacity={index % 3 === 0 ? 0.28 : 0.12}
-                />
-              </mesh>
-            );
-          })}
-        </>
-      ) : null}
-
-      {Array.from({ length: 18 }).map((_, index) => {
-        const z = -height / 2 + (index + 1) * (height / 18);
-        return (
-          <mesh
-            key={index}
-            position={[0, 0.001, z]}
-            rotation={[-Math.PI / 2, 0, 0]}
-          >
-            <planeGeometry args={[width, 0.008]} />
-            <meshBasicMaterial color="#a07850" transparent opacity={0.25} />
-          </mesh>
-        );
-      })}
-
-      {(() => {
-        const wallColor = "#787878";
-        const wallEmissive = "#505050";
-
-        return (
-          <>
-            <mesh position={[0, 0.5, -height / 2]} receiveShadow>
-              <boxGeometry args={[width, 1, 0.12]} />
-              <meshStandardMaterial
-                color={wallColor}
-                emissive={wallEmissive}
-                emissiveIntensity={0.4}
-                roughness={0.9}
-              />
-            </mesh>
-            <mesh position={[0, 0.5, height / 2]} receiveShadow>
-              <boxGeometry args={[width, 1, 0.12]} />
-              <meshStandardMaterial
-                color={wallColor}
-                emissive={wallEmissive}
-                emissiveIntensity={0.4}
-                roughness={0.9}
-              />
-            </mesh>
-            <mesh position={[-width / 2, 0.5, 0]} receiveShadow>
-              <boxGeometry args={[0.12, 1, height]} />
-              <meshStandardMaterial
-                color={wallColor}
-                emissive={wallEmissive}
-                emissiveIntensity={0.4}
-                roughness={0.9}
-              />
-            </mesh>
-            <mesh position={[width / 2, 0.5, 0]} receiveShadow>
-              <boxGeometry args={[0.12, 1, height]} />
-              <meshStandardMaterial
-                color={wallColor}
-                emissive={wallEmissive}
-                emissiveIntensity={0.4}
-                roughness={0.9}
-              />
-            </mesh>
-          </>
-        );
-      })()}
-
-      {null}
-
-      <mesh position={[0, 0.03, -height / 2 + 0.04]}>
-        <boxGeometry args={[width, 0.06, 0.04]} />
-        <meshLambertMaterial color="#0c0c10" />
-      </mesh>
-      <mesh position={[0, 0.03, height / 2 - 0.04]}>
-        <boxGeometry args={[width, 0.06, 0.04]} />
-        <meshLambertMaterial color="#0c0c10" />
-      </mesh>
-      <mesh position={[-width / 2 + 0.04, 0.03, 0]}>
-        <boxGeometry args={[0.04, 0.06, height]} />
-        <meshLambertMaterial color="#0c0c10" />
-      </mesh>
-      <mesh position={[width / 2 - 0.04, 0.03, 0]}>
-        <boxGeometry args={[0.04, 0.06, height]} />
-        <meshLambertMaterial color="#0c0c10" />
+        <planeGeometry args={[width, height]} />
+        <meshLambertMaterial color="#c8a97e" transparent opacity={0} />
       </mesh>
     </group>
   );
 }
+
+const OFFICE_GLB_PATH = "/office-assets/models/furniture/office.glb";
+
+const WALL_MIN_HEIGHT = 0.3;
+
+function extractCollisionAndFloor(scene: THREE.Object3D): {
+  boxes: CollisionBox[];
+  floorSurfaceY: number;
+} {
+  const tempBox = new THREE.Box3();
+  const size = new THREE.Vector3();
+
+  type MeshInfo = { area: number; minY: number; maxY: number; sizeY: number; box: THREE.Box3 };
+  const meshInfos: MeshInfo[] = [];
+
+  scene.traverse((child) => {
+    if (!(child as THREE.Mesh).isMesh) return;
+    const mesh = child as THREE.Mesh;
+    const b = new THREE.Box3();
+    b.setFromObject(mesh);
+    if (b.isEmpty()) return;
+    b.getSize(size);
+    const xzArea = size.x * size.z;
+    meshInfos.push({ area: xzArea, minY: b.min.y, maxY: b.max.y, sizeY: size.y, box: b });
+  });
+
+  if (meshInfos.length === 0) return { boxes: [], floorSurfaceY: 0 };
+
+  let candidateFloors: MeshInfo[] = [];
+
+  for (let i = 0; i < meshInfos.length; i++) {
+    const info = meshInfos[i];
+    const heightToAreaRatio = info.area > 0 ? info.sizeY / Math.sqrt(info.area) : Infinity;
+    if (heightToAreaRatio < 0.15) {
+      candidateFloors.push(info);
+    }
+  }
+
+  let floorSurfaceY = 0;
+  const floorMeshIndices = new Set<number>();
+
+  if (candidateFloors.length > 0) {
+    // Group by maxY (tolerance 0.1)
+    const groups: { maxY: number; totalArea: number; meshes: MeshInfo[] }[] = [];
+    for (const floor of candidateFloors) {
+      let found = false;
+      for (const group of groups) {
+        if (Math.abs(group.maxY - floor.maxY) < 0.1) {
+          group.totalArea += floor.area;
+          group.meshes.push(floor);
+          group.maxY = (group.maxY * (group.totalArea - floor.area) + floor.maxY * floor.area) / group.totalArea;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        groups.push({ maxY: floor.maxY, totalArea: floor.area, meshes: [floor] });
+      }
+    }
+
+    groups.sort((a, b) => b.totalArea - a.totalArea);
+    const maxGroupArea = groups[0].totalArea;
+    
+    // Filter groups that have at least 30% of the max area, and pick the lowest one
+    const largeGroups = groups.filter(g => g.totalArea > maxGroupArea * 0.3);
+    largeGroups.sort((a, b) => a.maxY - b.maxY);
+    
+    const floorGroup = largeGroups[0];
+    floorSurfaceY = floorGroup.maxY;
+
+    for (let i = 0; i < meshInfos.length; i++) {
+      if (floorGroup.meshes.includes(meshInfos[i])) {
+        floorMeshIndices.add(i);
+      }
+    }
+  }
+
+  const boxes: CollisionBox[] = [];
+  for (let i = 0; i < meshInfos.length; i++) {
+    if (floorMeshIndices.has(i)) continue;
+    const info = meshInfos[i];
+
+    if (info.sizeY < WALL_MIN_HEIGHT) continue;
+    if (info.maxY <= floorSurfaceY + 0.05) continue;
+
+    const b = info.box;
+    const topLeft = fromWorld(b.min.x, b.min.z);
+    const bottomRight = fromWorld(b.max.x, b.max.z);
+    const cx = Math.min(topLeft.cx, bottomRight.cx);
+    const cy = Math.min(topLeft.cy, bottomRight.cy);
+    const w = Math.abs(bottomRight.cx - topLeft.cx);
+    const h = Math.abs(bottomRight.cy - topLeft.cy);
+
+    if (w > 1 && h > 1) {
+      boxes.push({ x: cx, y: cy, w, h });
+    }
+  }
+
+  return { boxes, floorSurfaceY };
+}
+
+/**
+ * Loads office.glb as the environment model, auto-scales to fit the world,
+ * and extracts collision volumes for nav-grid blocking.
+ */
+export function OfficeModel({
+  onCollisionReady,
+  onBoundsReady,
+}: {
+  onCollisionReady?: (boxes: CollisionBox[]) => void;
+  onBoundsReady?: (bounds: ModelBounds) => void;
+}) {
+  const { scene } = useGLTF(OFFICE_GLB_PATH);
+  const groupRef = useRef<THREE.Group>(null);
+  const collisionExtracted = useRef(false);
+
+  const worldW = CANVAS_W * SCALE;
+  const worldH = CANVAS_H * SCALE;
+
+  const { cloned, scaleFactor, offset } = useMemo(() => {
+    const clonedScene = scene.clone(true);
+    clonedScene.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const modelSize = box.getSize(new THREE.Vector3());
+    const modelCenter = box.getCenter(new THREE.Vector3());
+
+    // 禁止自动缩放，保持原比例
+    const s = 1;
+
+    // Pre-scan for floor surface to align it to y=0 (not the model bottom).
+    const preGroup = new THREE.Group();
+    const preClone = clonedScene.clone(true);
+    preGroup.scale.set(s, s, s);
+    preGroup.position.set(-modelCenter.x * s, -box.min.y * s, -modelCenter.z * s);
+    preGroup.add(preClone);
+    preGroup.updateMatrixWorld(true);
+
+    const { floorSurfaceY: rawFloor } = extractCollisionAndFloor(preGroup);
+    const floorOffset = -rawFloor;
+
+    const off: [number, number, number] = [
+      -modelCenter.x * s,
+      -box.min.y * s + floorOffset,
+      -modelCenter.z * s,
+    ];
+
+    clonedScene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+
+    return { cloned: clonedScene, scaleFactor: s, offset: off };
+  }, [scene, worldW, worldH]);
+
+  useEffect(() => {
+    if (collisionExtracted.current) return;
+    collisionExtracted.current = true;
+
+    const tempGroup = new THREE.Group();
+    const tempClone = cloned.clone(true);
+    tempGroup.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    tempGroup.position.set(offset[0], offset[1], offset[2]);
+    tempGroup.add(tempClone);
+    tempGroup.updateMatrixWorld(true);
+
+    const { boxes, floorSurfaceY } = extractCollisionAndFloor(tempGroup);
+
+    const overallBox = new THREE.Box3().setFromObject(tempGroup);
+    const topLeft = fromWorld(overallBox.min.x, overallBox.min.z);
+    const bottomRight = fromWorld(overallBox.max.x, overallBox.max.z);
+    const padding = 30;
+    const bounds: ModelBounds = {
+      minCx: Math.max(0, Math.min(topLeft.cx, bottomRight.cx) + padding),
+      minCy: Math.max(0, Math.min(topLeft.cy, bottomRight.cy) + padding),
+      maxCx: Math.min(CANVAS_W, Math.max(topLeft.cx, bottomRight.cx) - padding),
+      maxCy: Math.min(CANVAS_H, Math.max(topLeft.cy, bottomRight.cy) - padding),
+      floorY: floorSurfaceY,
+    };
+    onBoundsReady?.(bounds);
+    onCollisionReady?.(boxes);
+  }, [cloned, scaleFactor, offset, onCollisionReady, onBoundsReady]);
+
+  return (
+    <group
+      ref={groupRef}
+      scale={[scaleFactor, scaleFactor, scaleFactor]}
+      position={offset}
+    >
+      <primitive object={cloned} />
+    </group>
+  );
+}
+
+useGLTF.preload(OFFICE_GLB_PATH);
 
 export function WallPictures() {
   const width = CANVAS_W * SCALE;

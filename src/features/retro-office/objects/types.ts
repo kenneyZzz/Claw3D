@@ -34,6 +34,7 @@ export type AgentModelProps = {
   appearance?: AgentAvatarProfile | null;
   agentsRef: RefObject<RenderAgent[]>;
   agentLookupRef?: RefObject<Map<string, RenderAgent>>;
+  floorY?: number;
   onHover?: (id: string) => void;
   onUnhover?: () => void;
   onClick?: (id: string) => void;
