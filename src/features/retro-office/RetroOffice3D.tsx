@@ -2371,8 +2371,8 @@ export function RetroOffice3D({
               renderAgent?.status === 'error' || agent.status === 'error',
             working:
               renderAgent?.state === 'sitting' ||
-              renderAgent?.status === 'working' ||
-              agent.status === 'working',
+              ['working', 'running'].includes(renderAgent?.status ?? '') ||
+              ['working', 'running'].includes(agent?.status ?? ''),
           };
           return acc;
         },

@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Message, WsHistoryMessage, WsMessage } from '@/features/office/types/chat';
+import type {
+  ChatFile,
+  Message,
+  WsHistoryMessage,
+  WsMessage,
+} from '@/features/office/types/chat';
 import { type SchedulerWebSocket, createSchedulerWebSocket } from './websocket';
 
 const CHAT_CHANNEL = 'web' as const;
@@ -40,6 +45,16 @@ function deduplicateMessages(messages: Message[]): Message[] {
     seen.add(m.id);
     return true;
   });
+}
+
+function extractSuggestions(msg: unknown) {
+  if (!msg || typeof msg !== 'object' || !('suggestions' in msg)) return null;
+  const { suggestions } = msg as { suggestions?: unknown };
+  return Array.isArray(suggestions)
+    ? suggestions.filter(
+        (suggestion: unknown): suggestion is string => typeof suggestion === 'string',
+      )
+    : null;
 }
 
 export function useChatWebSocket({
@@ -141,8 +156,9 @@ export function useChatWebSocket({
             if (msg.content) patch.text = msg.content;
             return patch;
           });
-          if ((msg as any).suggestions) {
-            setSuggestions((msg as any).suggestions);
+          const suggestions = extractSuggestions(msg);
+          if (suggestions) {
+            setSuggestions(suggestions);
           }
           scrollToBottom();
           break;
@@ -243,8 +259,8 @@ export function useChatWebSocket({
         }
       }
 
-      if ((msg as any).type === 'suggestions') {
-        setSuggestions((msg as any).suggestions || []);
+      if ((msg as { type?: string }).type === 'suggestions') {
+        setSuggestions(extractSuggestions(msg) ?? []);
         scrollToBottom();
       }
     },
@@ -264,8 +280,10 @@ export function useChatWebSocket({
     hasMoreRef.current = false;
     oldestIdRef.current = null;
     isLoadingHistoryRef.current = false;
-    setHasMore(false);
-    setIsLoadingHistory(false);
+    setTimeout(() => {
+      setHasMore(false);
+      setIsLoadingHistory(false);
+    }, 0);
   }, []);
 
   const loadHistory = useCallback(() => {
@@ -334,12 +352,18 @@ export function useChatWebSocket({
   }, [agentId, resetPagingState]);
 
   const disconnect = useCallback(() => {
+    const poolKey = agentId || '__default__';
     cleanupSubscriptions();
+    if (wsRef.current) {
+      wsRef.current.close();
+      agentWsPool.delete(poolKey);
+    }
     wsRef.current = null;
-  }, [cleanupSubscriptions]);
+    resetPagingState();
+  }, [agentId, cleanupSubscriptions, resetPagingState]);
 
   const send = useCallback(
-    (text: string, files: any[] = []) => {
+    (text: string, files: ChatFile[] = []) => {
       if (wsRef.current) {
         const payload: Record<string, unknown> = {
           channel: CHAT_CHANNEL,
@@ -372,17 +396,16 @@ export function useChatWebSocket({
 
   const isConnected = useCallback(() => wsRef.current !== null, []);
 
-  // Detach from old connection when agentId changes (keep WS alive in pool)
+  // Close the previous connection completely when agentId changes.
   const prevAgentIdRef = useRef(agentId);
   useEffect(() => {
     if (prevAgentIdRef.current === agentId) return;
+    disconnect();
     prevAgentIdRef.current = agentId;
-    cleanupSubscriptions();
-    wsRef.current = null;
     hasMoreRef.current = false;
     oldestIdRef.current = null;
     isLoadingHistoryRef.current = false;
-  }, [agentId, cleanupSubscriptions]);
+  }, [agentId, disconnect]);
 
   useEffect(() => {
     if (open) {
@@ -394,10 +417,9 @@ export function useChatWebSocket({
 
   useEffect(() => {
     return () => {
-      cleanupSubscriptions();
-      wsRef.current = null;
+      disconnect();
     };
-  }, [cleanupSubscriptions]);
+  }, [disconnect]);
 
   return { send, stop, isConnected, loadHistory, hasMore, isLoadingHistory };
 }

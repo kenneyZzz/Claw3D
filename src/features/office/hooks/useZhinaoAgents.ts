@@ -4,13 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import type { AgentStoreSeed, AgentState } from "@/features/agents/state/store";
 import { createSchedulerAgentvisualSocket } from "./websocket";
 
-type ZhinaoAgentPresenceStatus = "idle" | "working" | "waiting" | "offline";
+type ZhinaoAgentPresenceStatus = "idle" | "working";
 
 export type ZhinaoAgentActivity = {
   agentId: string;
   name: string;
   status: ZhinaoAgentPresenceStatus;
-  lastActive?: number;
 };
 
 type RawActivityAgent = {
@@ -63,10 +62,7 @@ type BubbleTextsMap = Map<string, string[]>;
 function mapStatusString(
   s?: string,
 ): ZhinaoAgentPresenceStatus {
-  if (s === "working" || s === "idle" || s === "waiting" || s === "offline") {
-    return s;
-  }
-  return "idle";
+  return s === "working" ? "working" : "idle";
 }
 
 function activityToSeed(a: ZhinaoAgentActivity): AgentStoreSeed {
@@ -75,13 +71,6 @@ function activityToSeed(a: ZhinaoAgentActivity): AgentStoreSeed {
     name: a.name,
     sessionKey: `zhinao-${a.agentId}`,
   };
-}
-
-function presenceStatusToAgentStatus(
-  status: ZhinaoAgentPresenceStatus,
-): AgentState["status"] {
-  if (status === "working" || status === "waiting") return "running";
-  return "idle";
 }
 
 interface UseZhinaoAgentsOptions {
@@ -120,26 +109,23 @@ export function useZhinaoAgents({
       const newActivities: ZhinaoAgentActivity[] = rawAgents.map((a) => ({
         agentId: a.agentId,
         name: a.name,
-        status: mapStatusString(a.status),
+        status: "idle",
       }));
 
       setActivities(newActivities);
 
-      const seeds = newActivities
-        .filter((a) => a.status !== "offline")
-        .map(activityToSeed);
+      const seeds = newActivities.map(activityToSeed);
 
       hydrateRef.current(seeds);
 
       for (const a of newActivities) {
-        if (a.status === "offline") continue;
-        const status = presenceStatusToAgentStatus(a.status);
+        const isWorking = a.status === "working";
         dispatchRef.current({
           type: "updateAgent",
           agentId: a.agentId,
           patch: {
-            status,
-            runId: status === "running" ? `zhinao-run-${a.agentId}` : null,
+            status: isWorking ? "running" : "idle",
+            runId: isWorking ? `zhinao-run-${a.agentId}` : null,
           },
         });
       }
@@ -169,13 +155,13 @@ export function useZhinaoAgents({
               a.agentId === agentId ? { ...a, status: newStatus } : a,
             ),
           );
-          const status = presenceStatusToAgentStatus(newStatus);
+          const isWorking = newStatus === "working";
           dispatchRef.current({
             type: "updateAgent",
             agentId,
             patch: {
-              status,
-              runId: status === "running" ? `zhinao-run-${agentId}` : null,
+              status: isWorking ? "running" : "idle",
+              runId: isWorking ? `zhinao-run-${agentId}` : null,
             },
           });
           prevStatusesRef.current = new Map(prevStatusesRef.current).set(agentId, newStatus);

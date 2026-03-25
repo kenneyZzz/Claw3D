@@ -9,54 +9,68 @@ import {
   type KeyboardEvent,
   type MutableRefObject,
   type ReactNode,
-} from "react";
-import type { AgentState as AgentRecord } from "@/features/agents/state/store";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Check, ChevronRight, Clock, Cog, Mic, Pencil, Square, Trash2, X } from "lucide-react";
-import type { GatewayModelChoice } from "@/lib/gateway/models";
-import { rewriteMediaLinesToMarkdown } from "@/lib/text/media-markdown";
-import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
-import { isNearBottom } from "@/lib/dom";
-import { useVoiceRecorder, type VoiceRecorderState, type VoiceSendPayload } from "@/hooks/useVoiceRecorder";
-import { AgentAvatar } from "./AgentAvatar";
+} from 'react';
+import type { AgentState as AgentRecord } from '@/features/agents/state/store';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import {
+  Check,
+  ChevronRight,
+  Clock,
+  Cog,
+  Mic,
+  Pencil,
+  Square,
+  Trash2,
+  X,
+} from 'lucide-react';
+import type { GatewayModelChoice } from '@/lib/gateway/models';
+import { rewriteMediaLinesToMarkdown } from '@/lib/text/media-markdown';
+import { normalizeAssistantDisplayText } from '@/lib/text/assistantText';
+import { isNearBottom } from '@/lib/dom';
+import {
+  useVoiceRecorder,
+  type VoiceRecorderState,
+  type VoiceSendPayload,
+} from '@/hooks/useVoiceRecorder';
+import { AgentAvatar } from './AgentAvatar';
 import type {
   ExecApprovalDecision,
   PendingExecApproval,
-} from "@/features/agents/approvals/types";
+} from '@/features/agents/approvals/types';
 import {
   buildAgentChatRenderBlocks,
   buildFinalAgentChatItems,
   summarizeToolLabel,
   type AssistantTraceEvent,
   type AgentChatItem,
-} from "./chatItems";
+} from './chatItems';
 
 const formatChatTimestamp = (timestampMs: number): string => {
   return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
+    hour: '2-digit',
+    minute: '2-digit',
     hour12: true,
   }).format(new Date(timestampMs));
 };
 
 const formatDurationLabel = (durationMs: number): string => {
   const seconds = durationMs / 1000;
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0.0s";
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0.0s';
   if (seconds < 10) return `${seconds.toFixed(1)}s`;
   return `${Math.round(seconds)}s`;
 };
 
-const SPINE_LEFT = "left-[15px]";
-const ASSISTANT_GUTTER_CLASS = "pl-[44px]";
-const ASSISTANT_MAX_WIDTH_DEFAULT_CLASS = "max-w-[68ch]";
-const ASSISTANT_MAX_WIDTH_EXPANDED_CLASS = "max-w-[1120px]";
+const SPINE_LEFT = 'left-[15px]';
+const ASSISTANT_GUTTER_CLASS = 'pl-[44px]';
+const ASSISTANT_MAX_WIDTH_DEFAULT_CLASS = 'max-w-[68ch]';
+const ASSISTANT_MAX_WIDTH_EXPANDED_CLASS = 'max-w-[1120px]';
 const CHAT_TOP_THRESHOLD_PX = 8;
 const EMPTY_CHAT_INTRO_MESSAGES = [
-  "How can I help you today?",
-  "What should we accomplish today?",
-  "Ready when you are. What do you want to tackle?",
-  "What are we working on today?",
+  'How can I help you today?',
+  'What should we accomplish today?',
+  'Ready when you are. What do you want to tackle?',
+  'What are we working on today?',
   "I'm here and ready. What's the plan?",
 ];
 
@@ -68,10 +82,14 @@ const stableStringHash = (value: string): number => {
   return hash;
 };
 
-const resolveEmptyChatIntroMessage = (agentId: string, sessionEpoch: number | undefined): string => {
-  if (EMPTY_CHAT_INTRO_MESSAGES.length === 0) return "How can I help you today?";
+const resolveEmptyChatIntroMessage = (
+  agentId: string,
+  sessionEpoch: number | undefined,
+): string => {
+  if (EMPTY_CHAT_INTRO_MESSAGES.length === 0)
+    return 'How can I help you today?';
   const normalizedEpoch =
-    typeof sessionEpoch === "number" && Number.isFinite(sessionEpoch)
+    typeof sessionEpoch === 'number' && Number.isFinite(sessionEpoch)
       ? Math.max(0, Math.trunc(sessionEpoch))
       : 0;
   const offset = stableStringHash(agentId) % EMPTY_CHAT_INTRO_MESSAGES.length;
@@ -83,7 +101,11 @@ const looksLikePath = (value: string): boolean => {
   if (!value) return false;
   if (/(^|[\s(])(?:[A-Za-z]:\\|~\/|\/)/.test(value)) return true;
   if (/(^|[\s(])(src|app|packages|components)\//.test(value)) return true;
-  if (/(^|[\s(])[\w.-]+\.(ts|tsx|js|jsx|json|md|py|go|rs|java|kt|rb|sh|yaml|yml)\b/.test(value)) {
+  if (
+    /(^|[\s(])[\w.-]+\.(ts|tsx|js|jsx|json|md|py|go|rs|java|kt|rb|sh|yaml|yml)\b/.test(
+      value,
+    )
+  ) {
     return true;
   }
   return false;
@@ -96,17 +118,27 @@ const isStructuredMarkdown = (text: string): boolean => {
   if (/^\s*[-*+]\s+/m.test(text)) return true;
   if (/^\s*\d+\.\s+/m.test(text)) return true;
   if (/^\s*\|.+\|\s*$/m.test(text)) return true;
-  if (looksLikePath(text) && text.split("\n").filter(Boolean).length >= 3) return true;
+  if (looksLikePath(text) && text.split('\n').filter(Boolean).length >= 3)
+    return true;
   return false;
 };
 
-const resolveAssistantMaxWidthClass = (text: string | null | undefined): string => {
-  const value = (text ?? "").trim();
+const resolveAssistantMaxWidthClass = (
+  text: string | null | undefined,
+): string => {
+  const value = (text ?? '').trim();
   if (!value) return ASSISTANT_MAX_WIDTH_DEFAULT_CLASS;
   if (isStructuredMarkdown(value)) return ASSISTANT_MAX_WIDTH_EXPANDED_CLASS;
-  const nonEmptyLines = value.split("\n").filter((line) => line.trim().length > 0);
-  const shortLineCount = nonEmptyLines.filter((line) => line.trim().length <= 44).length;
-  if (nonEmptyLines.length >= 10 && shortLineCount / Math.max(1, nonEmptyLines.length) >= 0.65) {
+  const nonEmptyLines = value
+    .split('\n')
+    .filter((line) => line.trim().length > 0);
+  const shortLineCount = nonEmptyLines.filter(
+    (line) => line.trim().length <= 44,
+  ).length;
+  if (
+    nonEmptyLines.length >= 10 &&
+    shortLineCount / Math.max(1, nonEmptyLines.length) >= 0.65
+  ) {
     return ASSISTANT_MAX_WIDTH_EXPANDED_CLASS;
   }
   return ASSISTANT_MAX_WIDTH_DEFAULT_CLASS;
@@ -138,12 +170,12 @@ type AgentChatPanelProps = {
 };
 
 const formatApprovalExpiry = (timestampMs: number): string => {
-  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return "Unknown";
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return 'Unknown';
   return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(timestampMs));
 };
 
@@ -160,16 +192,18 @@ const ExecApprovalCard = memo(function ExecApprovalCard({
       className={`w-full ${ASSISTANT_MAX_WIDTH_EXPANDED_CLASS} ${ASSISTANT_GUTTER_CLASS} ui-badge-approval self-start rounded-md px-3 py-2 shadow-2xs`}
       data-testid={`exec-approval-card-${approval.id}`}
     >
-      <div className="type-meta">
-        Exec approval required
-      </div>
+      <div className="type-meta">Exec approval required</div>
       <div className="mt-2 rounded-md bg-surface-3 px-2 py-1.5 shadow-2xs">
-        <div className="font-mono text-[10px] font-semibold text-foreground">{approval.command}</div>
+        <div className="font-mono text-[10px] font-semibold text-foreground">
+          {approval.command}
+        </div>
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
-        <div>Host: {approval.host ?? "unknown"}</div>
+        <div>Host: {approval.host ?? 'unknown'}</div>
         <div>Expires: {formatApprovalExpiry(approval.expiresAtMs)}</div>
-        {approval.cwd ? <div className="sm:col-span-2">CWD: {approval.cwd}</div> : null}
+        {approval.cwd ? (
+          <div className="sm:col-span-2">CWD: {approval.cwd}</div>
+        ) : null}
       </div>
       {approval.error ? (
         <div className="ui-alert-danger mt-2 rounded-md px-2 py-1 text-[11px] shadow-2xs">
@@ -180,7 +214,7 @@ const ExecApprovalCard = memo(function ExecApprovalCard({
         <button
           type="button"
           className="rounded-md border border-border/70 bg-surface-3 px-2.5 py-1 font-mono text-[12px] font-medium tracking-[0.02em] text-foreground transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => onResolve?.(approval.id, "allow-once")}
+          onClick={() => onResolve?.(approval.id, 'allow-once')}
           disabled={disabled}
           aria-label={`Allow once for exec approval ${approval.id}`}
         >
@@ -189,7 +223,7 @@ const ExecApprovalCard = memo(function ExecApprovalCard({
         <button
           type="button"
           className="rounded-md border border-border/70 bg-surface-3 px-2.5 py-1 font-mono text-[12px] font-medium tracking-[0.02em] text-foreground transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => onResolve?.(approval.id, "allow-always")}
+          onClick={() => onResolve?.(approval.id, 'allow-always')}
           disabled={disabled}
           aria-label={`Always allow for exec approval ${approval.id}`}
         >
@@ -198,7 +232,7 @@ const ExecApprovalCard = memo(function ExecApprovalCard({
         <button
           type="button"
           className="ui-btn-danger rounded-md px-2.5 py-1 font-mono text-[12px] font-medium tracking-[0.02em] transition disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => onResolve?.(approval.id, "deny")}
+          onClick={() => onResolve?.(approval.id, 'deny')}
           disabled={disabled}
           aria-label={`Deny exec approval ${approval.id}`}
         >
@@ -224,7 +258,9 @@ const ToolCallDetails = memo(function ToolCallDetails({
   if (inlineOnly) {
     return (
       <div className={resolvedClassName}>
-        <div className="font-mono text-[10px] font-semibold tracking-[0.11em]">{summaryText}</div>
+        <div className="font-mono text-[10px] font-semibold tracking-[0.11em]">
+          {summaryText}
+        </div>
       </div>
     );
   }
@@ -266,13 +302,13 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
   const [open, setOpen] = useState(false);
   const traceEvents = (() => {
     if (events && events.length > 0) return events;
-    const normalizedThinkingText = thinkingText?.trim() ?? "";
+    const normalizedThinkingText = thinkingText?.trim() ?? '';
     const next: AssistantTraceEvent[] = [];
     if (normalizedThinkingText) {
-      next.push({ kind: "thinking", text: normalizedThinkingText });
+      next.push({ kind: 'thinking', text: normalizedThinkingText });
     }
     for (const line of toolLines) {
-      next.push({ kind: "tool", text: line });
+      next.push({ kind: 'tool', text: line });
     }
     return next;
   })();
@@ -294,7 +330,7 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
           <span className="font-mono text-[10px] font-medium tracking-[0.02em]">
             Thinking (internal)
           </span>
-          {typeof durationMs === "number" ? (
+          {typeof durationMs === 'number' ? (
             <span className="inline-flex items-center gap-1 font-mono text-[10px] font-medium tracking-[0.02em] text-muted-foreground/80">
               <Clock className="h-3 w-3" />
               {formatDurationLabel(durationMs)}
@@ -312,12 +348,14 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
       {open ? (
         <div className="mt-2 space-y-2 pl-5">
           {traceEvents.map((event, index) =>
-            event.kind === "thinking" ? (
+            event.kind === 'thinking' ? (
               <div
                 key={`thinking-event-${index}-${event.text.slice(0, 48)}`}
                 className="agent-markdown min-w-0 text-foreground/85"
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{event.text}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {event.text}
+                </ReactMarkdown>
               </div>
             ) : (
               <ToolCallDetails
@@ -325,7 +363,7 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
                 line={event.text}
                 className="rounded-md border border-border/45 bg-surface-2/65 px-2 py-1 text-[10px] text-muted-foreground/90 shadow-2xs"
               />
-            )
+            ),
           )}
         </div>
       ) : null}
@@ -346,7 +384,7 @@ const UserMessageCard = memo(function UserMessageCard({
         <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
           You
         </div>
-        {typeof timestampMs === "number" ? (
+        {typeof timestampMs === 'number' ? (
           <time className="type-meta shrink-0 rounded-md bg-surface-3 px-2 py-0.5 font-mono text-muted-foreground/70">
             {formatChatTimestamp(timestampMs)}
           </time>
@@ -382,23 +420,33 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
   contentText?: string | null;
   streaming?: boolean;
 }) {
-  const resolvedTimestamp = typeof timestampMs === "number" ? timestampMs : null;
+  const resolvedTimestamp =
+    typeof timestampMs === 'number' ? timestampMs : null;
   const hasThinking = Boolean(
     (thinkingEvents?.length ?? 0) > 0 ||
-      thinkingText?.trim() ||
-      (thinkingToolLines?.length ?? 0) > 0
+    thinkingText?.trim() ||
+    (thinkingToolLines?.length ?? 0) > 0,
   );
   const widthClass = hasThinking
     ? ASSISTANT_MAX_WIDTH_EXPANDED_CLASS
     : resolveAssistantMaxWidthClass(contentText);
   const hasContent = Boolean(contentText?.trim());
-  const compactStreamingIndicator = Boolean(streaming && !hasThinking && !hasContent);
+  const compactStreamingIndicator = Boolean(
+    streaming && !hasThinking && !hasContent,
+  );
 
   return (
     <div className="w-full self-start">
-      <div className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}>
+      <div
+        className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}
+      >
         <div className="absolute left-[4px] top-[2px]">
-          <AgentAvatar seed={avatarSeed} name={name} avatarUrl={avatarUrl} size={22} />
+          <AgentAvatar
+            seed={avatarSeed}
+            name={name}
+            avatarUrl={avatarUrl}
+            size={22}
+          />
         </div>
         <div className="flex items-center justify-between gap-3 py-0.5">
           <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
@@ -461,7 +509,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
               <div className="ui-chat-assistant-card">
                 {streaming ? (
                   (() => {
-                    if (!contentText.includes("MEDIA:")) {
+                    if (!contentText.includes('MEDIA:')) {
                       return (
                         <div className="whitespace-pre-wrap break-words text-foreground">
                           {contentText}
@@ -469,7 +517,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                       );
                     }
                     const rewritten = rewriteMediaLinesToMarkdown(contentText);
-                    if (!rewritten.includes("![](")) {
+                    if (!rewritten.includes('![](')) {
                       return (
                         <div className="whitespace-pre-wrap break-words text-foreground">
                           {contentText}
@@ -478,7 +526,9 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                     }
                     return (
                       <div className="agent-markdown text-foreground">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{rewritten}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {rewritten}
+                        </ReactMarkdown>
                       </div>
                     );
                   })()
@@ -511,9 +561,16 @@ const AssistantIntroCard = memo(function AssistantIntroCard({
 }) {
   return (
     <div className="w-full self-start">
-      <div className={`relative w-full ${ASSISTANT_MAX_WIDTH_DEFAULT_CLASS} ${ASSISTANT_GUTTER_CLASS}`}>
+      <div
+        className={`relative w-full ${ASSISTANT_MAX_WIDTH_DEFAULT_CLASS} ${ASSISTANT_GUTTER_CLASS}`}
+      >
         <div className="absolute left-[4px] top-[2px]">
-          <AgentAvatar seed={avatarSeed} name={name} avatarUrl={avatarUrl} size={22} />
+          <AgentAvatar
+            seed={avatarSeed}
+            name={name}
+            avatarUrl={avatarUrl}
+            size={22}
+          />
         </div>
         <div className="flex items-center justify-between gap-3 py-0.5">
           <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
@@ -521,7 +578,9 @@ const AssistantIntroCard = memo(function AssistantIntroCard({
           </div>
         </div>
         <div className="ui-chat-assistant-card mt-2">
-          <div className="text-[14px] leading-[1.65] text-foreground">{title}</div>
+          <div className="text-[14px] leading-[1.65] text-foreground">
+            {title}
+          </div>
           <div className="mt-2 font-mono text-[10px] tracking-[0.03em] text-muted-foreground/80">
             Try describing a task, bug, or question to get started.
           </div>
@@ -553,7 +612,7 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
   return (
     <>
       {blocks.map((block, index) => {
-        if (block.kind === "user") {
+        if (block.kind === 'user') {
           return (
             <UserMessageCard
               key={`chat-${agentId}-user-${index}`}
@@ -569,7 +628,10 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
             avatarSeed={avatarSeed}
             avatarUrl={avatarUrl}
             name={name}
-            timestampMs={block.timestampMs ?? (streaming ? runStartedAt ?? undefined : undefined)}
+            timestampMs={
+              block.timestampMs ??
+              (streaming ? (runStartedAt ?? undefined) : undefined)
+            }
             thinkingEvents={block.traceEvents}
             thinkingDurationMs={block.thinkingDurationMs}
             contentText={block.text}
@@ -608,7 +670,7 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   name: string;
   avatarSeed: string;
   avatarUrl: string | null;
-  status: AgentRecord["status"];
+  status: AgentRecord['status'];
   historyMaybeTruncated: boolean;
   historyFetchedCount: number | null;
   historyFetchLimit: number | null;
@@ -637,7 +699,7 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   const scrollChatToBottom = useCallback(() => {
     if (!chatRef.current) return;
     if (chatBottomRef.current) {
-      chatBottomRef.current.scrollIntoView({ block: "end" });
+      chatBottomRef.current.scrollIntoView({ block: 'end' });
       return;
     }
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -661,8 +723,8 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
           scrollHeight: el.scrollHeight,
           clientHeight: el.clientHeight,
         },
-        48
-      )
+        48,
+      ),
     );
   }, [setPinned]);
 
@@ -679,7 +741,10 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   }, [updatePinnedFromScroll]);
 
   const showJumpToLatest =
-    !isPinned && (outputLineCount > 0 || liveAssistantCharCount > 0 || liveThinkingCharCount > 0);
+    !isPinned &&
+    (outputLineCount > 0 ||
+      liveAssistantCharCount > 0 ||
+      liveThinkingCharCount > 0);
 
   useEffect(() => {
     const shouldForceScroll = scrollToBottomNextOutputRef.current;
@@ -712,12 +777,17 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   }, []);
 
   const showLiveAssistantCard =
-    status === "running" && Boolean(liveThinkingText || liveAssistantText || showTypingIndicator);
+    status === 'running' &&
+    Boolean(liveThinkingText || liveAssistantText || showTypingIndicator);
   const hasApprovals = pendingExecApprovals.length > 0;
   const hasTranscriptContent = chatItems.length > 0 || hasApprovals;
 
   useEffect(() => {
-    if (status !== "running" || typeof runStartedAt !== "number" || !showLiveAssistantCard) {
+    if (
+      status !== 'running' ||
+      typeof runStartedAt !== 'number' ||
+      !showLiveAssistantCard
+    ) {
       return;
     }
 
@@ -737,7 +807,7 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
       <div
         ref={chatRef}
         data-testid="agent-chat-scroll"
-        className={`ui-chat-scroll ui-chat-scroll-borderless h-full overflow-auto p-4 dark:p-6 sm:p-5 dark:sm:p-7 ${showJumpToLatest ? "pb-20" : ""}`}
+        className={`ui-chat-scroll ui-chat-scroll-borderless h-full overflow-auto p-4 dark:p-6 sm:p-5 dark:sm:p-7 ${showJumpToLatest ? 'pb-20' : ''}`}
         onScroll={() => updatePinnedFromScroll()}
         onWheel={(event) => {
           event.stopPropagation();
@@ -747,12 +817,21 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
         }}
       >
         <div className="relative flex flex-col gap-6 dark:gap-8 text-[14px] leading-[1.65] text-foreground">
-          <div aria-hidden className={`pointer-events-none absolute ${SPINE_LEFT} top-0 bottom-0 w-px bg-border/20`} />
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute ${SPINE_LEFT} top-0 bottom-0 w-px bg-border/20`}
+          />
           {historyMaybeTruncated && isAtTop ? (
             <div className="-mx-1 flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3 py-2 shadow-2xs">
               <div className="type-meta min-w-0 truncate font-mono text-muted-foreground">
-                Showing most recent {typeof historyFetchedCount === "number" ? historyFetchedCount : "?"} messages
-                {typeof historyFetchLimit === "number" ? ` (limit ${historyFetchLimit})` : ""}
+                Showing most recent{' '}
+                {typeof historyFetchedCount === 'number'
+                  ? historyFetchedCount
+                  : '?'}{' '}
+                messages
+                {typeof historyFetchLimit === 'number'
+                  ? ` (limit ${historyFetchLimit})`
+                  : ''}
               </div>
               <button
                 type="button"
@@ -778,7 +857,7 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
                 avatarSeed={avatarSeed}
                 avatarUrl={avatarUrl}
                 chatItems={chatItems}
-                running={status === "running"}
+                running={status === 'running'}
                 runStartedAt={runStartedAt}
               />
               {showLiveAssistantCard ? (
@@ -789,12 +868,13 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
                   timestampMs={runStartedAt ?? undefined}
                   thinkingText={liveThinkingText || null}
                   thinkingDurationMs={
-                    typeof runStartedAt === "number" && typeof nowMs === "number"
+                    typeof runStartedAt === 'number' &&
+                    typeof nowMs === 'number'
                       ? Math.max(0, nowMs - runStartedAt)
                       : undefined
                   }
                   contentText={liveAssistantText || null}
-                  streaming={status === "running"}
+                  streaming={status === 'running'}
                 />
               ) : null}
               {pendingExecApprovals.map((approval) => (
@@ -907,54 +987,66 @@ const AgentChatComposer = memo(function AgentChatComposer({
   onToolCallingToggle: (enabled: boolean) => void;
   onThinkingTracesToggle: (enabled: boolean) => void;
 }) {
-  const stopReason = stopDisabledReason?.trim() ?? "";
+  const stopReason = stopDisabledReason?.trim() ?? '';
   const stopDisabled = !canSend || stopBusy || Boolean(stopReason);
-  const stopAriaLabel = stopReason ? `Stop unavailable: ${stopReason}` : "Stop";
-  const voiceBusy = voiceState === "requesting" || voiceState === "transcribing";
-  const voiceRecording = voiceState === "recording";
-  const voiceDisabled = voiceRecording ? false : !voiceEnabled || !voiceSupported || !canSend || voiceBusy;
+  const stopAriaLabel = stopReason ? `Stop unavailable: ${stopReason}` : 'Stop';
+  const voiceBusy =
+    voiceState === 'requesting' || voiceState === 'transcribing';
+  const voiceRecording = voiceState === 'recording';
+  const voiceDisabled = voiceRecording
+    ? false
+    : !voiceEnabled || !voiceSupported || !canSend || voiceBusy;
   const voiceLabel =
-    voiceState === "recording"
-      ? "Stop"
-      : voiceState === "transcribing"
-        ? "..."
-        : voiceState === "requesting"
-          ? "Mic..."
-          : "Mic";
+    voiceState === 'recording'
+      ? 'Stop'
+      : voiceState === 'transcribing'
+        ? '...'
+        : voiceState === 'requesting'
+          ? 'Mic...'
+          : 'Mic';
   const voiceStatusText =
-    voiceState === "recording"
-      ? "Recording. Tap stop to send."
-      : voiceState === "transcribing"
-        ? "Transcribing your voice note."
-        : voiceState === "requesting"
-          ? "Requesting microphone access."
+    voiceState === 'recording'
+      ? 'Recording. Tap stop to send.'
+      : voiceState === 'transcribing'
+        ? 'Transcribing your voice note.'
+        : voiceState === 'requesting'
+          ? 'Requesting microphone access.'
           : !voiceSupported && voiceEnabled
-            ? "This browser does not support microphone recording."
+            ? 'This browser does not support microphone recording.'
             : null;
   const modelSelectedLabel = useMemo(() => {
-    if (modelOptions.length === 0) return "No models found";
-    return modelOptions.find((option) => option.value === modelValue)?.label ?? modelValue;
+    if (modelOptions.length === 0) return 'No models found';
+    return (
+      modelOptions.find((option) => option.value === modelValue)?.label ??
+      modelValue
+    );
   }, [modelOptions, modelValue]);
-  const modelSelectWidthCh = Math.max(11, Math.min(44, modelSelectedLabel.length + 6));
+  const modelSelectWidthCh = Math.max(
+    11,
+    Math.min(44, modelSelectedLabel.length + 6),
+  );
   const thinkingSelectedLabel = useMemo(() => {
     switch (thinkingValue) {
-      case "off":
-        return "Off";
-      case "minimal":
-        return "Minimal";
-      case "low":
-        return "Low";
-      case "medium":
-        return "Medium";
-      case "high":
-        return "High";
-      case "xhigh":
-        return "XHigh";
+      case 'off':
+        return 'Off';
+      case 'minimal':
+        return 'Minimal';
+      case 'low':
+        return 'Low';
+      case 'medium':
+        return 'Medium';
+      case 'high':
+        return 'High';
+      case 'xhigh':
+        return 'XHigh';
       default:
-        return "Default";
+        return 'Default';
     }
   }, [thinkingValue]);
-  const thinkingSelectWidthCh = Math.max(9, Math.min(22, thinkingSelectedLabel.length + 6));
+  const thinkingSelectWidthCh = Math.max(
+    9,
+    Math.min(22, thinkingSelectedLabel.length + 6),
+  );
   return (
     <>
       <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
@@ -1013,8 +1105,8 @@ const AgentChatComposer = memo(function AgentChatComposer({
             aria-checked={toolCallingEnabled}
             className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
               toolCallingEnabled
-                ? "border-primary/45 bg-primary/14 text-foreground"
-                : "border-border/70 bg-surface-2/40 text-muted-foreground hover:text-foreground"
+                ? 'border-primary/45 bg-primary/14 text-foreground'
+                : 'border-border/70 bg-surface-2/40 text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => onToolCallingToggle(!toolCallingEnabled)}
           >
@@ -1027,8 +1119,8 @@ const AgentChatComposer = memo(function AgentChatComposer({
             aria-checked={showThinkingTraces}
             className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
               showThinkingTraces
-                ? "border-primary/45 bg-primary/14 text-white"
-                : "border-border/70 bg-surface-2/40 text-muted-foreground hover:text-white"
+                ? 'border-primary/45 bg-primary/14 text-white'
+                : 'border-border/70 bg-surface-2/40 text-muted-foreground hover:text-white'
             }`}
             onClick={() => onThinkingTracesToggle(!showThinkingTraces)}
           >
@@ -1040,7 +1132,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
         {queuedMessages.length > 0 ? (
           <div
             className={`mb-2 grid items-start gap-2 ${
-              running ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
+              running
+                ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
+                : 'grid-cols-[minmax(0,1fr)_auto]'
             }`}
           >
             <div
@@ -1082,7 +1176,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
                 disabled
                 className="invisible rounded-md border border-border/70 bg-surface-3 px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em] text-foreground"
               >
-                {stopBusy ? "Stopping" : "Stop"}
+                {stopBusy ? 'Stopping' : 'Stop'}
               </button>
             ) : null}
             <button
@@ -1100,8 +1194,8 @@ const AgentChatComposer = memo(function AgentChatComposer({
           <div
             className={`mb-2 rounded-md border px-2.5 py-1.5 font-mono text-[10px] tracking-[0.02em] ${
               voiceError
-                ? "border-red-500/30 bg-red-500/10 text-red-200"
-                : "border-amber-700/35 bg-amber-500/8 text-amber-200"
+                ? 'border-red-500/30 bg-red-500/10 text-red-200'
+                : 'border-amber-700/35 bg-amber-500/8 text-amber-200'
             }`}
             data-testid="agent-voice-status"
           >
@@ -1122,18 +1216,30 @@ const AgentChatComposer = memo(function AgentChatComposer({
             <button
               className={`rounded-md border px-2.5 py-2 font-mono text-[11px] font-medium tracking-[0.02em] transition ${
                 voiceRecording
-                  ? "border-red-500/60 bg-red-500/12 text-red-200 hover:bg-red-500/18"
-                  : "border-border/70 bg-surface-3 text-white hover:bg-surface-2 hover:text-white"
+                  ? 'border-red-500/60 bg-red-500/12 text-red-200 hover:bg-red-500/18'
+                  : 'border-border/70 bg-surface-3 text-white hover:bg-surface-2 hover:text-white'
               } disabled:cursor-not-allowed disabled:border-border/30 disabled:bg-muted/20 disabled:text-muted-foreground`}
               type="button"
               onClick={onVoiceToggle}
               disabled={voiceDisabled}
               data-testid="agent-voice-toggle"
-              aria-label={voiceRecording ? "Stop voice recording" : "Start voice recording"}
-              title={voiceRecording ? "Stop voice recording" : "Start voice recording"}
+              aria-label={
+                voiceRecording
+                  ? 'Stop voice recording'
+                  : 'Start voice recording'
+              }
+              title={
+                voiceRecording
+                  ? 'Stop voice recording'
+                  : 'Start voice recording'
+              }
             >
               <span className="inline-flex items-center gap-1.5">
-                {voiceRecording ? <Square className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                {voiceRecording ? (
+                  <Square className="h-3.5 w-3.5" />
+                ) : (
+                  <Mic className="h-3.5 w-3.5" />
+                )}
                 <span>{voiceLabel}</span>
               </span>
             </button>
@@ -1147,7 +1253,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
                 disabled={stopDisabled}
                 aria-label={stopAriaLabel}
               >
-                {stopBusy ? "Stopping" : "Stop"}
+                {stopBusy ? 'Stopping' : 'Stop'}
               </button>
             </span>
           ) : null}
@@ -1218,14 +1324,17 @@ export const AgentChatPanel = ({
   const resizeDraft = useCallback(() => {
     const el = draftRef.current;
     if (!el) return;
-    el.style.height = "auto";
+    el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-    el.style.overflowY = el.scrollHeight > el.clientHeight ? "auto" : "hidden";
+    el.style.overflowY = el.scrollHeight > el.clientHeight ? 'auto' : 'hidden';
   }, []);
 
-  const handleDraftRef = useCallback((el: HTMLTextAreaElement | HTMLInputElement | null) => {
-    draftRef.current = el instanceof HTMLTextAreaElement ? el : null;
-  }, []);
+  const handleDraftRef = useCallback(
+    (el: HTMLTextAreaElement | HTMLInputElement | null) => {
+      draftRef.current = el instanceof HTMLTextAreaElement ? el : null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const previousIdentity = draftIdentityRef.current;
@@ -1243,8 +1352,8 @@ export const AgentChatPanel = ({
     }
     if (agent.draft === plainDraftRef.current) return;
     if (agent.draft.length !== 0) return;
-    plainDraftRef.current = "";
-    setDraftValue("");
+    plainDraftRef.current = '';
+    setDraftValue('');
   }, [agent.agentId, agent.draft, agent.sessionKey]);
 
   useEffect(() => {
@@ -1286,13 +1395,13 @@ export const AgentChatPanel = ({
       if (!canSend) return;
       const trimmed = message.trim();
       if (!trimmed) return;
-      plainDraftRef.current = "";
-      setDraftValue("");
-      onDraftChange("");
+      plainDraftRef.current = '';
+      setDraftValue('');
+      onDraftChange('');
       scrollToBottomNextOutputRef.current = true;
       onSend(trimmed);
     },
-    [canSend, onDraftChange, onSend]
+    [canSend, onDraftChange, onSend],
   );
 
   const chatItems = useMemo(
@@ -1302,16 +1411,25 @@ export const AgentChatPanel = ({
         showThinkingTraces: agent.showThinkingTraces,
         toolCallingEnabled: agent.toolCallingEnabled,
       }),
-    [agent.outputLines, agent.showThinkingTraces, agent.toolCallingEnabled]
+    [agent.outputLines, agent.showThinkingTraces, agent.toolCallingEnabled],
   );
-  const running = agent.status === "running";
-  const renderBlocks = useMemo(() => buildAgentChatRenderBlocks(chatItems), [chatItems]);
+  const running = agent.status === 'running';
+  const renderBlocks = useMemo(
+    () => buildAgentChatRenderBlocks(chatItems),
+    [chatItems],
+  );
   const hasActiveStreamingTailInTranscript =
-    running && renderBlocks.length > 0 && !renderBlocks[renderBlocks.length - 1].text;
+    running &&
+    renderBlocks.length > 0 &&
+    !renderBlocks[renderBlocks.length - 1].text;
   const liveAssistantText =
-    running && agent.streamText ? normalizeAssistantDisplayText(agent.streamText) : "";
+    running && agent.streamText
+      ? normalizeAssistantDisplayText(agent.streamText)
+      : '';
   const liveThinkingText =
-    running && agent.showThinkingTraces && agent.thinkingTrace ? agent.thinkingTrace.trim() : "";
+    running && agent.showThinkingTraces && agent.thinkingTrace
+      ? agent.thinkingTrace.trim()
+      : '';
   const hasVisibleLiveThinking = Boolean(liveThinkingText.trim());
   const showTypingIndicator =
     running &&
@@ -1323,27 +1441,32 @@ export const AgentChatPanel = ({
     () =>
       models.map((entry) => {
         const key = `${entry.provider}/${entry.id}`;
-        const alias = typeof entry.name === "string" ? entry.name.trim() : "";
+        const alias = typeof entry.name === 'string' ? entry.name.trim() : '';
         return {
           value: key,
           label: !alias || alias === key ? key : alias,
           reasoning: entry.reasoning,
         };
       }),
-    [models]
+    [models],
   );
-  const modelValue = agent.model ?? "";
+  const modelValue = agent.model ?? '';
   const modelOptionsWithFallback =
     modelValue && !modelOptions.some((option) => option.value === modelValue)
-      ? [{ value: modelValue, label: modelValue, reasoning: undefined }, ...modelOptions]
+      ? [
+          { value: modelValue, label: modelValue, reasoning: undefined },
+          ...modelOptions,
+        ]
       : modelOptions;
-  const selectedModel = modelOptionsWithFallback.find((option) => option.value === modelValue);
+  const selectedModel = modelOptionsWithFallback.find(
+    (option) => option.value === modelValue,
+  );
   const allowThinking = selectedModel?.reasoning !== false;
 
   const avatarSeed = agent.avatarSeed ?? agent.agentId;
   const emptyStateTitle = useMemo(
     () => resolveEmptyChatIntroMessage(agent.agentId, agent.sessionEpoch),
-    [agent.agentId, agent.sessionEpoch]
+    [agent.agentId, agent.sessionEpoch],
   );
   const sendDisabled = !canSend || !draftValue.trim();
 
@@ -1354,31 +1477,29 @@ export const AgentChatPanel = ({
       setDraftValue(value);
       onDraftChange(value);
     },
-    [onDraftChange]
+    [onDraftChange],
   );
 
   const handleComposerKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-      if (event.key !== "Enter" || event.shiftKey) return;
+      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
+        return;
+      if (event.key !== 'Enter' || event.shiftKey) return;
       if (event.defaultPrevented) return;
       event.preventDefault();
       handleSend(draftValue);
     },
-    [draftValue, handleSend]
+    [draftValue, handleSend],
   );
 
   const handleComposerSend = useCallback(() => {
     handleSend(draftValue);
   }, [draftValue, handleSend]);
 
-  const handleVoiceToggle = useCallback(
-    () => {
-      if (!canSend && voiceState !== "recording") return;
-      void toggleVoiceRecording();
-    },
-    [canSend, toggleVoiceRecording, voiceState],
-  );
+  const handleVoiceToggle = useCallback(() => {
+    if (!canSend && voiceState !== 'recording') return;
+    void toggleVoiceRecording();
+  }, [canSend, toggleVoiceRecording, voiceState]);
 
   const beginRename = useCallback(() => {
     if (!onRename) return;
@@ -1402,9 +1523,9 @@ export const AgentChatPanel = ({
       if (renameEditorRef.current?.contains(target)) return;
       cancelRename();
     };
-    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener('pointerdown', handlePointerDown, true);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
     };
   }, [cancelRename, renameEditing]);
 
@@ -1413,7 +1534,7 @@ export const AgentChatPanel = ({
     const nextName = renameDraft.trim();
     const currentName = agent.name.trim();
     if (!nextName) {
-      setRenameError("Agent name is required.");
+      setRenameError('Agent name is required.');
       return;
     }
     if (nextName === currentName) {
@@ -1427,7 +1548,7 @@ export const AgentChatPanel = ({
     try {
       const ok = await onRename(nextName);
       if (!ok) {
-        setRenameError("Failed to rename agent.");
+        setRenameError('Failed to rename agent.');
         return;
       }
       setRenameEditing(false);
@@ -1439,17 +1560,17 @@ export const AgentChatPanel = ({
 
   const handleRenameInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") {
+      if (event.key === 'Enter') {
         event.preventDefault();
         void submitRename();
         return;
       }
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.preventDefault();
         cancelRename();
       }
     },
-    [cancelRename, submitRename]
+    [cancelRename, submitRename],
   );
 
   const handleNewSession = useCallback(async () => {
@@ -1465,7 +1586,10 @@ export const AgentChatPanel = ({
   const newSessionDisabled = newSessionBusy || !canSend || !onNewSession;
 
   return (
-    <div data-agent-panel className="group fade-up relative flex h-full w-full flex-col">
+    <div
+      data-agent-panel
+      className="group fade-up relative flex h-full w-full flex-col"
+    >
       <div className="px-3 pt-2 sm:px-4 sm:pt-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
@@ -1479,7 +1603,9 @@ export const AgentChatPanel = ({
               />
               <button
                 className="nodrag ui-btn-icon ui-btn-icon-xs agent-avatar-shuffle-btn absolute bottom-0 right-0"
-                style={{ "--ui-btn-icon-size": "1.1rem" } as React.CSSProperties}
+                style={
+                  { '--ui-btn-icon-size': '1.1rem' } as React.CSSProperties
+                }
                 type="button"
                 aria-label="Customize avatar"
                 data-testid="agent-avatar-customize"
@@ -1497,7 +1623,10 @@ export const AgentChatPanel = ({
               <div className="flex min-w-0 items-center gap-2">
                 <div className="min-w-0 w-[clamp(11rem,34vw,16rem)]">
                   {renameEditing ? (
-                    <div ref={renameEditorRef} className="flex h-8 items-center gap-1.5">
+                    <div
+                      ref={renameEditorRef}
+                      className="flex h-8 items-center gap-1.5"
+                    >
                       <input
                         ref={renameInputRef}
                         className="ui-input agent-rename-input h-8 min-w-0 flex-1 rounded-md px-2 text-[12px] font-semibold text-foreground"
@@ -1555,7 +1684,9 @@ export const AgentChatPanel = ({
                 </div>
               </div>
               {renameError ? (
-                <div className="ui-text-danger mt-1 text-[11px]">{renameError}</div>
+                <div className="ui-text-danger mt-1 text-[11px]">
+                  {renameError}
+                </div>
               ) : null}
             </div>
           </div>
@@ -1572,11 +1703,11 @@ export const AgentChatPanel = ({
               }}
               disabled={newSessionDisabled}
             >
-              {newSessionBusy ? "Starting..." : "New session"}
+              {newSessionBusy ? 'Starting...' : 'New session'}
             </button>
             <button
               className="nodrag ui-btn-icon"
-              style={{ "--ui-btn-icon-size": "1.25rem" } as React.CSSProperties}
+              style={{ '--ui-btn-icon-size': '1.25rem' } as React.CSSProperties}
               type="button"
               data-testid="agent-settings-toggle"
               aria-label="Open behavior"
@@ -1640,7 +1771,7 @@ export const AgentChatPanel = ({
             }))}
             modelValue={modelValue}
             allowThinking={allowThinking}
-            thinkingValue={agent.thinkingLevel ?? ""}
+            thinkingValue={agent.thinkingLevel ?? ''}
             onModelChange={onModelChange}
             onThinkingChange={onThinkingChange}
             toolCallingEnabled={agent.toolCallingEnabled}

@@ -62,7 +62,7 @@ describe("useZhinaoAgents", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps waiting agents as running across list and status messages", async () => {
+  it("initializes agent_list statuses as idle and updates later from agent_status", async () => {
     const hydrateAgents = vi.fn();
     const dispatch = vi.fn();
     const setLoading = vi.fn();
@@ -81,20 +81,20 @@ describe("useZhinaoAgents", () => {
       socketMock.emitMessage({
         type: "agent_list",
         data: {
-          agents: [{ agentId: "agent-1", name: "Agent One", status: "waiting" }],
+          agents: [{ agentId: "agent-1", name: "Agent One", status: "working" }],
         },
       });
     });
 
     await waitFor(() => {
       expect(result.current.activities).toHaveLength(1);
-      expect(result.current.activities[0]?.status).toBe("waiting");
+      expect(result.current.activities[0]?.status).toBe("idle");
       expect(dispatch).toHaveBeenCalledWith({
         type: "updateAgent",
         agentId: "agent-1",
         patch: {
-          status: "running",
-          runId: "zhinao-run-agent-1",
+          status: "idle",
+          runId: null,
         },
       });
     });
