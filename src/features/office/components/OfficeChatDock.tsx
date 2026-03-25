@@ -41,7 +41,11 @@ export function OfficeChatDock({
     const selectedStillExists = selectedChatAgentId
       ? agents.some((agent) => agent.agentId === selectedChatAgentId)
       : false;
-    if (chatOpen && agents.length > 0 && (!selectedChatAgentId || !selectedStillExists)) {
+    if (
+      chatOpen &&
+      agents.length > 0 &&
+      (!selectedChatAgentId || !selectedStillExists)
+    ) {
       onSelectAgent(agents[0]!.agentId);
     }
   }, [chatOpen, selectedChatAgentId, agents, onSelectAgent]);
@@ -51,9 +55,9 @@ export function OfficeChatDock({
       className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 ${sidebarOpen ? 'right-84' : 'right-3'} ${debugEnabled ? 'hidden' : ''}`}
     >
       {chatOpen ? (
-        <div className="flex h-[560px] w-[640px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl">
+        <div className="flex h-[560px] w-[660px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl opacity-90">
           {/* Agent sidebar */}
-          <div className="flex w-44 shrink-0 flex-col border-r border-[var(--border)]">
+          <div className="flex w-36 shrink-0 flex-col border-r border-[var(--border)]">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
               <span className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
                 {t('office.agents')}
