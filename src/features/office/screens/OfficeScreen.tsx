@@ -2564,6 +2564,7 @@ export function OfficeScreen({
             void standupController.startMeeting('manual');
           }
         }}
+        onAgentSelect={handleOpenAgentChat}
         onMonitorSelect={(agentId) => {
           setMonitorAgentId(agentId);
           if (agentId) {

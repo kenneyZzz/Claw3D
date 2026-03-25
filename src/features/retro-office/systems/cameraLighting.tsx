@@ -7,11 +7,22 @@ import { WORLD_H, WORLD_W } from "@/features/retro-office/core/constants";
 import { toWorld } from "@/features/retro-office/core/geometry";
 import type { RenderAgent } from "@/features/retro-office/core/types";
 
-export type CameraPreset = {
-  pos: [number, number, number];
-  target: [number, number, number];
-  zoom?: number;
+type CameraVector3 = [number, number, number];
+type CameraTransitionEasing = "linear" | "easeOutCubic";
+
+export type CameraTransition = {
+  durationMs: number;
+  easing?: CameraTransitionEasing;
 };
+
+export type CameraPreset = {
+  pos: CameraVector3;
+  target: CameraVector3;
+  zoom?: number;
+  transition?: CameraTransition;
+};
+
+export const CAMERA_FOCUS_TRANSITION_DURATION_MS = 550;
 
 export const CAMERA_PRESETS = {
   overview: {
@@ -36,6 +47,48 @@ type OrbitControllerLike = {
   update: () => void;
 };
 
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+const easeProgress = (progress: number, easing: CameraTransitionEasing) => {
+  const clamped = clamp01(progress);
+  if (easing === "linear") return clamped;
+  return 1 - (1 - clamped) ** 3;
+};
+
+export function buildFocusedCameraPreset({
+  cameraPosition,
+  currentTarget,
+  nextTarget,
+  zoom,
+  durationMs = CAMERA_FOCUS_TRANSITION_DURATION_MS,
+  easing = "easeOutCubic",
+}: {
+  cameraPosition: CameraVector3;
+  currentTarget: CameraVector3;
+  nextTarget: CameraVector3;
+  zoom?: number;
+  durationMs?: number;
+  easing?: CameraTransitionEasing;
+}): CameraPreset {
+  const offsetX = cameraPosition[0] - currentTarget[0];
+  const offsetY = cameraPosition[1] - currentTarget[1];
+  const offsetZ = cameraPosition[2] - currentTarget[2];
+
+  return {
+    pos: [
+      nextTarget[0] + offsetX,
+      nextTarget[1] + offsetY,
+      nextTarget[2] + offsetZ,
+    ],
+    target: [...nextTarget],
+    ...(typeof zoom === "number" ? { zoom } : {}),
+    transition: {
+      durationMs,
+      easing,
+    },
+  };
+}
+
 export function CameraAnimator({
   presetRef,
   orbitRef,
@@ -49,6 +102,11 @@ export function CameraAnimator({
   );
   const targetPositionRef = useRef(new THREE.Vector3());
   const targetLookAtRef = useRef(new THREE.Vector3());
+  const activeTransitionPresetRef = useRef<CameraPreset | null>(null);
+  const transitionStartTimeRef = useRef(0);
+  const transitionStartPositionRef = useRef(new THREE.Vector3());
+  const transitionStartTargetRef = useRef(new THREE.Vector3());
+  const transitionStartZoomRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
@@ -64,6 +122,65 @@ export function CameraAnimator({
 
     targetPositionRef.current.set(...preset.pos);
     targetLookAtRef.current.set(...preset.target);
+
+    if (preset.transition && preset.transition.durationMs > 0) {
+      if (activeTransitionPresetRef.current !== preset) {
+        activeTransitionPresetRef.current = preset;
+        transitionStartTimeRef.current = performance.now();
+        transitionStartPositionRef.current.copy(camera.position);
+        transitionStartTargetRef.current.copy(orbit.target);
+        transitionStartZoomRef.current = activeCamera ? activeCamera.zoom : null;
+      }
+
+      const elapsedMs = performance.now() - transitionStartTimeRef.current;
+      const progress = clamp01(elapsedMs / preset.transition.durationMs);
+      const easedProgress = easeProgress(
+        progress,
+        preset.transition.easing ?? "easeOutCubic",
+      );
+
+      camera.position.lerpVectors(
+        transitionStartPositionRef.current,
+        targetPositionRef.current,
+        easedProgress,
+      );
+      orbit.target.lerpVectors(
+        transitionStartTargetRef.current,
+        targetLookAtRef.current,
+        easedProgress,
+      );
+
+      if (
+        activeCamera &&
+        typeof preset.zoom === "number" &&
+        typeof transitionStartZoomRef.current === "number"
+      ) {
+        activeCamera.zoom = lerp(
+          transitionStartZoomRef.current,
+          preset.zoom,
+          easedProgress,
+        );
+        activeCamera.updateProjectionMatrix();
+      }
+
+      orbit.update();
+
+      if (progress >= 1) {
+        camera.position.copy(targetPositionRef.current);
+        orbit.target.copy(targetLookAtRef.current);
+        if (activeCamera && typeof preset.zoom === "number") {
+          activeCamera.zoom = preset.zoom;
+          activeCamera.updateProjectionMatrix();
+        }
+        activeTransitionPresetRef.current = null;
+        transitionStartZoomRef.current = null;
+        presetRef.current = null;
+      }
+      return;
+    }
+
+    activeTransitionPresetRef.current = null;
+    transitionStartZoomRef.current = null;
     camera.position.lerp(targetPositionRef.current, 0.06);
     orbit.target.lerp(targetLookAtRef.current, 0.06);
 
@@ -73,12 +190,18 @@ export function CameraAnimator({
     }
 
     orbit.update();
+    const targetSettled =
+      orbit.target.distanceTo(targetLookAtRef.current) < 0.05;
     const zoomSettled =
       !activeCamera ||
       typeof preset.zoom !== "number" ||
       Math.abs(activeCamera.zoom - preset.zoom) < 0.5;
 
-    if (camera.position.distanceTo(targetPositionRef.current) < 0.05 && zoomSettled) {
+    if (
+      camera.position.distanceTo(targetPositionRef.current) < 0.05 &&
+      targetSettled &&
+      zoomSettled
+    ) {
       presetRef.current = null;
     }
   });
