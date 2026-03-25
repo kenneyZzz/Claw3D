@@ -7,7 +7,7 @@ import type {
   WsHistoryMessage,
   WsMessage,
 } from '@/features/office/types/chat';
-import { type SchedulerWebSocket, createSchedulerWebSocket } from './websocket';
+import { type SchedulerWebSocket, createSchedulerChatSocket } from './websocket';
 import { getZhinaoClientId } from "@/lib/zhinao-api";
 
 const CHAT_CHANNEL = 'web' as const;
@@ -327,7 +327,7 @@ export function useChatWebSocket({
       if (agentId) queryParams.agentId = agentId;
       const clientId = getZhinaoClientId();
       if (clientId) queryParams['X-Client-Id'] = clientId;
-      ws = createSchedulerWebSocket(queryParams);
+      ws = createSchedulerChatSocket(queryParams);
       agentWsPool.set(poolKey, ws);
       wsRef.current = ws;
       ws.connect();

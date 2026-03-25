@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/features/office/hooks/websocket', async () => {
   const mod = await import('./officeChatTestUtils');
   return {
-    createSchedulerWebSocket: mod.createMockSchedulerWebSocket,
+    createSchedulerChatSocket: mod.createMockSchedulerWebSocket,
   };
 });
 

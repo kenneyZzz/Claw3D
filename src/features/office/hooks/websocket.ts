@@ -224,7 +224,7 @@ function buildWsBaseUrl(apiBase: string): string {
  *
  * @param queryParams Optional extra query parameters appended to the URL.
  */
-export const createSchedulerWebSocket = (params?: Record<string, string>) => {
+export const createSchedulerChatSocket = (params?: Record<string, string>) => {
   const wsUrl = buildWsBaseUrl(`${ZHINAO_API_BASE}`);
   const finalUrl = `${wsUrl}/scheduler/chat/ws`;
 
